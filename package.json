@@ -1,0 +1,15 @@
+{
+  "name": "r41-link",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Nexus companion: media to R41 26×27 display and MIDI export",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
