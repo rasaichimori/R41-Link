@@ -2,254 +2,532 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>R41 Link</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400&family=VT323&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=VT323&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
-  <body>
-    <div class="terminal-screen">
-      <div class="terminal-window">
-        <header class="terminal-titlebar" aria-hidden="true">
-          <span class="terminal-lights">
-            <span class="terminal-light terminal-light--close"></span>
-            <span class="terminal-light terminal-light--min"></span>
-            <span class="terminal-light terminal-light--max"></span>
-          </span>
-          <span class="terminal-title">r41-link — nexus/lcd-visualizer</span>
+  <body data-media="none">
+    <div class="desktop">
+      <!-- Main application window -->
+      <div class="window app-window is-active" id="app-window">
+        <header class="title-bar">
+          <svg class="title-icon" viewBox="0 0 8 12" aria-hidden="true" shape-rendering="crispEdges">
+            <rect x="0" y="0" width="3" height="3" fill="#a9bb5c" />
+            <rect x="4" y="0" width="3" height="3" fill="#1f2a12" />
+            <rect x="0" y="4" width="3" height="3" fill="#a9bb5c" />
+            <rect x="4" y="4" width="3" height="3" fill="#1f2a12" />
+            <rect x="0" y="8" width="3" height="3" fill="#a9bb5c" />
+            <rect x="4" y="8" width="3" height="3" fill="#a9bb5c" />
+          </svg>
+          <h1 class="title-text">R41 Link - <span id="window-doc">Untitled</span></h1>
+          <div class="title-controls">
+            <button type="button" class="title-btn" data-action="how" aria-label="How it works">
+              <svg viewBox="0 0 8 8" aria-hidden="true" shape-rendering="crispEdges">
+                <path d="M2 0h4v1H2zM1 1h1v2H1zM6 1h1v2H6zM5 3h1v1H5zM4 4h1v1H4zM3 4h1v2H3zM3 7h2v1H3z" />
+              </svg>
+            </button>
+            <span class="title-btn is-disabled" aria-hidden="true">
+              <svg viewBox="0 0 8 8" shape-rendering="crispEdges"><path d="M1 6h6v2H1z" /></svg>
+            </span>
+            <button type="button" class="title-btn" data-action="maximize" aria-label="Maximize" aria-pressed="false">
+              <svg viewBox="0 0 9 8" aria-hidden="true" shape-rendering="crispEdges">
+                <path d="M0 0h9v2H0zM0 2h1v6H0zM8 2h1v6H8zM1 7h7v1H1z" />
+              </svg>
+            </button>
+            <span class="title-btn title-btn-close is-disabled" aria-hidden="true">
+              <svg viewBox="0 0 8 7" shape-rendering="crispEdges">
+                <path
+                  d="M0 0h2v1H0zM6 0h2v1H6zM1 1h2v1H1zM5 1h2v1H5zM2 2h4v1H2zM3 3h2v1H3zM2 4h4v1H2zM1 5h2v1H1zM5 5h2v1H5zM0 6h2v1H0zM6 6h2v1H6z"
+                />
+              </svg>
+            </span>
+          </div>
         </header>
 
-        <main class="app terminal-body">
-          <header class="header">
-            <p class="terminal-line terminal-line--prompt">
-              <span class="prompt-user">user@nexus</span><span class="prompt-sep">:</span
-              ><span class="prompt-path">~/r41-link</span><span class="prompt-dollar">$</span>
-              <span class="prompt-cmd">./r41-link --serve</span>
-            </p>
-            <pre class="terminal-banner" aria-hidden="true">r41-link 0.1.0 — 26x27 LCD to MIDI (Nexus)</pre>
-            <p class="tagline">
-              Convert images, GIFs, or video into the R41 display grid and export MIDI.
-            </p>
-          </header>
-
-          <div class="workspace">
-            <div class="workspace-main">
-              <section class="dropzone panel" id="dropzone" tabindex="0" aria-label="Upload media">
-                <input type="file" id="file-input" accept="image/*,video/*" hidden />
-                <h2 class="panel-title"><span class="panel-prefix">$</span> load media</h2>
-                <div class="dropzone-body">
-                  <p class="dropzone-label">Drop image, GIF, or video here</p>
-                  <p class="dropzone-sublabel">or click / Enter to browse</p>
-                  <p class="dropzone-hint">
-                    <span class="dropzone-hint-key">status:</span>
-                    <span id="file-name">no file loaded</span>
-                  </p>
-                </div>
-              </section>
-
-              <section
-                class="panel video-timeline"
-                id="video-timeline"
-                hidden
-                aria-labelledby="video-timeline-heading"
-              >
-                <h2 class="panel-title" id="video-timeline-heading">
-                  <span class="panel-prefix">$</span> video timeline
-                </h2>
-                <div class="video-trimmer" role="group" aria-labelledby="video-timeline-heading">
-                  <div class="video-trimmer-header">
-                    <div class="video-timeline-transport">
-                      <button
-                        type="button"
-                        class="btn btn-primary video-timeline-play"
-                        id="preview-playback"
-                        disabled
-                        aria-keyshortcuts="Space"
-                        aria-label="Play preview"
-                      >
-                        <span class="video-timeline-play-icon video-timeline-play-icon--play" aria-hidden="true"
-                          >▶</span
-                        >
-                        <span class="video-timeline-play-icon video-timeline-play-icon--stop" aria-hidden="true"
-                          >■</span
-                        >
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-secondary video-timeline-play video-timeline-reset"
-                        id="preview-reset-start"
-                        disabled
-                        aria-label="Reset to start"
-                      >
-                        <span class="video-timeline-reset-icon" aria-hidden="true">⏮</span>
-                      </button>
-                    </div>
-                    <div class="video-trimmer-frames" aria-live="polite">
-                      <div class="video-trimmer-frame-col">
-                        <span class="video-trimmer-frame-label">start</span>
-                        <output
-                          class="video-trimmer-frame-value"
-                          id="export-frame-start-readout"
-                          for="export-frame-start"
-                          >0</output
-                        >
-                      </div>
-                      <div class="video-trimmer-frame-col video-trimmer-frame-col--current">
-                        <span class="video-trimmer-frame-label" id="frame-current-label">current</span>
-                        <output class="video-trimmer-frame-value" id="frame-current-value" for="frame">0</output>
-                      </div>
-                      <div class="video-trimmer-frame-col">
-                        <span class="video-trimmer-frame-label">end</span>
-                        <output
-                          class="video-trimmer-frame-value"
-                          id="export-frame-end-readout"
-                          for="export-frame-end"
-                          >0</output
-                        >
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    class="video-trimmer-rail"
-                    id="export-range-dual"
-                    role="group"
-                    aria-label="Video timeline; click to seek"
-                  >
-                    <div class="video-trimmer-track" aria-hidden="true"></div>
-                    <div class="video-trimmer-range-fill" id="export-range-fill" aria-hidden="true"></div>
-                    <div class="video-trimmer-playhead" id="frame-playhead" aria-hidden="true"></div>
-                    <input
-                      type="range"
-                      class="video-trimmer-export video-trimmer-export--start"
-                      id="export-frame-start"
-                      min="0"
-                      max="0"
-                      value="0"
-                      step="1"
-                      aria-label="Export start frame"
-                    />
-                    <input
-                      type="range"
-                      class="video-trimmer-export video-trimmer-export--end"
-                      id="export-frame-end"
-                      min="0"
-                      max="0"
-                      value="0"
-                      step="1"
-                      aria-label="Export end frame"
-                    />
-                    <input
-                      type="range"
-                      class="video-trimmer-scrub"
-                      id="frame"
-                      min="0"
-                      max="0"
-                      value="0"
-                      step="0.001"
-                      aria-labelledby="frame-current-label"
-                    />
-                  </div>
-                </div>
-                <label class="control video-timeline-fps">
-                  <span>export_fps</span>
-                  <input
-                    type="range"
-                    id="export-fps"
-                    min="1"
-                    max="60"
-                    value="30"
-                    step="1"
-                    aria-describedby="export-fps-hint"
-                  />
-                  <output id="export-fps-value">30</output>
-                </label>
-                <p class="control-hint video-timeline-fps-hint" id="export-fps-hint">
-                  // higher FPS → more MIDI frames (finer motion, larger file)
-                </p>
-              </section>
-
-              <section class="panel" aria-labelledby="settings-heading">
-                <h2 class="panel-title" id="settings-heading">
-                  <span class="panel-prefix">$</span> convert
-                </h2>
-                <div class="controls">
-                  <label class="control">
-                    <span>threshold</span>
-                    <input type="range" id="threshold" min="0" max="255" value="128" />
-                    <output id="threshold-value">128</output>
-                  </label>
-                  <label class="control">
-                    <span>bpm</span>
-                    <input type="number" id="bpm" min="1" max="999" step="1" value="120" inputmode="numeric" />
-                  </label>
-                </div>
-              </section>
-
-              <section class="panel panel-actions" aria-labelledby="export-heading">
-                <h2 class="panel-title" id="export-heading">
-                  <span class="panel-prefix">$</span> export
-                </h2>
-                <div class="actions">
-                  <button type="button" class="btn btn-primary" id="export-video-midi" disabled hidden>
-                    Export video MIDI
-                  </button>
-                </div>
-                <p class="export-midi-notes" aria-live="polite">
-                  <span class="export-midi-notes-label">midi_notes</span>
-                  <output class="export-midi-notes-value" id="midi-notes-count">—</output>
-                </p>
-                <p class="export-status" id="export-status" aria-live="polite"></p>
-              </section>
+        <nav class="menubar" role="menubar" aria-label="R41 Link">
+          <div class="menu">
+            <button
+              type="button"
+              class="menubar-item"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              data-key="f"
+            >
+              <u>F</u>ile
+            </button>
+            <div class="menu-popup" role="menu" aria-label="File" hidden>
+              <button type="button" role="menuitem" data-action="open">
+                <span>Open media...</span><span class="menu-key">Ctrl+O</span>
+              </button>
+              <div class="menu-sep" role="separator"></div>
+              <button type="button" role="menuitem" data-action="export">
+                <span>Export MIDI...</span>
+              </button>
             </div>
+          </div>
+          <div class="menu">
+            <button
+              type="button"
+              class="menubar-item"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              data-key="v"
+            >
+              <u>V</u>iew
+            </button>
+            <div class="menu-popup" role="menu" aria-label="View" hidden>
+              <button type="button" role="menuitem" data-action="play">
+                <span>Play range</span><span class="menu-key">Space</span>
+              </button>
+              <button type="button" role="menuitem" data-action="rewind">
+                <span>Back to range start</span>
+              </button>
+              <div class="menu-sep" role="separator"></div>
+              <button type="button" role="menuitemcheckbox" aria-checked="false" data-action="toggle-invert">
+                <span>Invert</span>
+              </button>
+              <div class="menu-sep" role="separator"></div>
+              <button type="button" role="menuitemradio" aria-checked="true" data-action="scheme" data-scheme="auto">
+                <span>Match system colors</span>
+              </button>
+              <button type="button" role="menuitemradio" aria-checked="false" data-action="scheme" data-scheme="light">
+                <span>Standard colors</span>
+              </button>
+              <button type="button" role="menuitemradio" aria-checked="false" data-action="scheme" data-scheme="dark">
+                <span>Night colors</span>
+              </button>
+            </div>
+          </div>
+          <div class="menu">
+            <button
+              type="button"
+              class="menubar-item"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              data-key="h"
+            >
+              <u>H</u>elp
+            </button>
+            <div class="menu-popup" role="menu" aria-label="Help" hidden>
+              <button type="button" role="menuitem" data-action="how">
+                <span>How it works...</span>
+              </button>
+              <div class="menu-sep" role="separator"></div>
+              <button type="button" role="menuitem" data-action="about">
+                <span>About R41 Link</span>
+              </button>
+            </div>
+          </div>
+        </nav>
 
-            <aside class="workspace-preview">
-              <section class="panel panel-preview" aria-labelledby="preview-heading">
-                <h2 class="panel-title" id="preview-heading">
-                  <span class="panel-prefix">$</span> preview
-                </h2>
-                <div class="preview-row">
-                  <div class="preview-stage">
-                    <canvas id="preview" width="312" height="324" aria-label="26 by 27 pixel preview"></canvas>
-                  </div>
-                  <div class="preview-scale" role="group" aria-label="Preview scale">
-                    <input
-                      type="range"
-                      class="preview-scale-input"
-                      id="scale"
-                      min="4"
-                      max="24"
-                      value="12"
-                      aria-label="Preview scale"
-                      aria-valuetext="12×"
-                    />
-                    <label class="preview-invert">
-                      <span class="preview-invert-label">invert</span>
-                      <input type="checkbox" id="invert" />
-                    </label>
-                  </div>
+        <div class="window-body workspace">
+          <!-- Display -->
+          <section class="group stage" aria-labelledby="preview-heading">
+            <h2 class="group-title" id="preview-heading">Display</h2>
+            <div class="lcd-bay">
+              <div class="lcd">
+                <canvas id="preview" width="416" height="432" aria-label="26 by 27 pixel preview"></canvas>
+                <canvas class="lcd-overlay" id="lcd-overlay" width="26" height="27" aria-hidden="true"></canvas>
+              </div>
+            </div>
+            <label class="tool-zoom">
+              <span>Zoom:</span>
+              <input
+                type="range"
+                class="trackbar preview-scale-input"
+                id="scale"
+                min="4"
+                max="24"
+                value="16"
+                aria-label="Preview zoom"
+                aria-valuetext="16×"
+              />
+            </label>
+          </section>
+
+          <div class="col-side">
+            <!-- Source -->
+            <section class="group panel-source" aria-labelledby="source-heading">
+              <h2 class="group-title" id="source-heading">Source</h2>
+              <input type="file" id="file-input" accept="image/*,video/*" hidden />
+              <div
+                class="dropzone"
+                id="dropzone"
+                role="button"
+                tabindex="0"
+                aria-label="Open media"
+                aria-describedby="file-name"
+              >
+                <svg class="dropzone-icon" viewBox="0 0 32 26" aria-hidden="true" shape-rendering="crispEdges">
+                  <path
+                    fill="#000"
+                    d="M1 3h11v1H1zM12 4h1v2h-1zM13 6h16v1H13zM0 4h1v21H0zM29 7h1v18h-1zM1 25h28v1H1z"
+                  />
+                  <path fill="#e8c840" d="M1 4h11v2h1v1h16v18H1z" />
+                  <path fill="#fff8b0" d="M1 4h11v1H1zM1 5h1v19H1z" />
+                  <path fill="#a08010" d="M2 24h27v1H2zM28 8h1v16h-1z" />
+                </svg>
+                <p class="dropzone-label">Drag an image, GIF or video here</p>
+                <span class="btn btn-fake" aria-hidden="true">Browse...</span>
+              </div>
+              <p class="dropzone-hint">
+                <span class="dropzone-hint-key">File:</span>
+                <span class="dropzone-file" id="file-name">(none)</span>
+              </p>
+            </section>
+
+            <!-- Conversion -->
+            <section class="group panel-convert" aria-labelledby="settings-heading">
+              <h2 class="group-title" id="settings-heading">Conversion</h2>
+              <div class="field">
+                <div class="field-row">
+                  <label class="field-label" for="threshold">Threshold:</label>
+                  <output class="field-readout" id="threshold-value" for="threshold">128</output>
                 </div>
-                <p class="preview-caption">26×27 logical px · 117 MIDI blocks (2×3 each)</p>
-              </section>
-            </aside>
+                <input
+                  type="range"
+                  class="trackbar trackbar-luma"
+                  id="threshold"
+                  min="0"
+                  max="255"
+                  value="128"
+                  aria-describedby="threshold-hint"
+                />
+                <div class="trackbar-ends" aria-hidden="true"><span>Dark</span><span>Light</span></div>
+                <p class="field-hint" id="threshold-hint">
+                  Pixels brighter than this light up. It’s set automatically when a file opens.
+                </p>
+              </div>
+              <label class="checkbox">
+                <input type="checkbox" id="invert" />
+                <span>Invert (light the dark areas)</span>
+              </label>
+            </section>
+
+            <!-- Export -->
+            <section class="group panel-actions" aria-labelledby="export-heading">
+              <h2 class="group-title" id="export-heading">Export</h2>
+              <div class="field-grid">
+                <label class="field-label" for="bpm">Tempo:</label>
+                <span class="unit-readout">
+                  <input
+                    class="text-field"
+                    type="number"
+                    id="bpm"
+                    min="1"
+                    max="999"
+                    step="1"
+                    value="120"
+                    inputmode="numeric"
+                  />
+                  BPM
+                </span>
+                <span class="field-label">MIDI notes:</span>
+                <output class="notes-readout" id="midi-notes-count" aria-live="polite">—</output>
+              </div>
+              <div class="actions">
+                <button type="button" class="btn btn-default" id="export-video-midi" disabled hidden>
+                  Export MIDI...
+                </button>
+                <p class="actions-empty">Open a video to export MIDI.</p>
+              </div>
+            </section>
           </div>
 
-          <details class="notes">
-            <summary>man midi-mapping.md</summary>
-            <ul>
-              <li>Display: 26×27 = 13×9 blocks of 2×3 pixels.</li>
-              <li>Notes 11–127: block index = 127 − note (top-left = 127).</li>
-              <li>Velocity 1–63 selects one of 64 patterns inside each block (6-bit glyph).</li>
-              <li>Still images export one chord of note-ons; video exports a frame range at your chosen FPS with timing from BPM.</li>
-            </ul>
-          </details>
-        </main>
+          <!-- Video range -->
+          <section
+            class="group timeline video-timeline"
+            id="video-timeline"
+            hidden
+            aria-labelledby="video-timeline-heading"
+          >
+            <h2 class="group-title" id="video-timeline-heading">Video range</h2>
+            <div class="video-trimmer" role="group" aria-labelledby="video-timeline-heading">
+              <div class="video-trimmer-header">
+                <div class="video-timeline-transport">
+                  <button
+                    type="button"
+                    class="btn video-timeline-play"
+                    id="preview-playback"
+                    disabled
+                    aria-keyshortcuts="Space"
+                    aria-label="Play preview"
+                  >
+                    <span class="video-timeline-play-icon video-timeline-play-icon--play" aria-hidden="true">
+                      <svg viewBox="0 0 8 9" shape-rendering="crispEdges">
+                        <path d="M1 0h1v9H1zM2 1h1v7H2zM3 2h1v5H3zM4 3h1v3H4zM5 4h1v1H5z" />
+                      </svg>
+                    </span>
+                    <span class="video-timeline-play-icon video-timeline-play-icon--stop" aria-hidden="true">
+                      <svg viewBox="0 0 8 8" shape-rendering="crispEdges"><path d="M1 1h6v6H1z" /></svg>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn video-timeline-play video-timeline-reset"
+                    id="preview-reset-start"
+                    disabled
+                    aria-label="Back to range start"
+                  >
+                    <svg viewBox="0 0 9 9" aria-hidden="true" shape-rendering="crispEdges">
+                      <path d="M1 0h2v9H1zM7 0h1v9H7zM6 1h1v7H6zM5 2h1v5H5zM4 3h1v3H4z" />
+                    </svg>
+                  </button>
+                  <span class="kbd-hint">Space plays the range</span>
+                </div>
+
+                <div class="video-trimmer-frames">
+                  <div class="video-trimmer-frame-col">
+                    <span class="video-trimmer-frame-label">Start:</span>
+                    <output
+                      class="video-trimmer-frame-value field-readout"
+                      id="export-frame-start-readout"
+                      for="export-frame-start"
+                      >0</output
+                    >
+                  </div>
+                  <div class="video-trimmer-frame-col video-trimmer-frame-col--current">
+                    <span class="video-trimmer-frame-label" id="frame-current-label">Frame:</span>
+                    <output class="video-trimmer-frame-value field-readout" id="frame-current-value" for="frame"
+                      >0</output
+                    >
+                  </div>
+                  <div class="video-trimmer-frame-col">
+                    <span class="video-trimmer-frame-label">End:</span>
+                    <output
+                      class="video-trimmer-frame-value field-readout"
+                      id="export-frame-end-readout"
+                      for="export-frame-end"
+                      >0</output
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="video-trimmer-rail"
+                id="export-range-dual"
+                role="group"
+                aria-label="Video timeline; click to seek"
+              >
+                <div class="video-trimmer-track" aria-hidden="true"></div>
+                <div class="video-trimmer-range-fill" id="export-range-fill" aria-hidden="true"></div>
+                <div class="video-trimmer-playhead" id="frame-playhead" aria-hidden="true"></div>
+                <input
+                  type="range"
+                  class="video-trimmer-export video-trimmer-export--start"
+                  id="export-frame-start"
+                  min="0"
+                  max="0"
+                  value="0"
+                  step="1"
+                  aria-label="Export start frame"
+                />
+                <input
+                  type="range"
+                  class="video-trimmer-export video-trimmer-export--end"
+                  id="export-frame-end"
+                  min="0"
+                  max="0"
+                  value="0"
+                  step="1"
+                  aria-label="Export end frame"
+                />
+                <input
+                  type="range"
+                  class="video-trimmer-scrub"
+                  id="frame"
+                  min="0"
+                  max="0"
+                  value="0"
+                  step="0.001"
+                  aria-labelledby="frame-current-label"
+                />
+              </div>
+
+              <p class="range-summary">
+                <span id="ui-range-summary"></span>
+                <span class="range-hint">Drag the handles to trim. Click the bar to seek.</span>
+              </p>
+            </div>
+
+            <div class="field field-fps">
+              <label class="field-label" for="export-fps">Export frame rate:</label>
+              <input
+                type="range"
+                class="trackbar"
+                id="export-fps"
+                min="1"
+                max="60"
+                value="30"
+                step="1"
+                aria-describedby="export-fps-hint"
+              />
+              <span class="unit-readout"
+                ><output class="field-readout" id="export-fps-value" for="export-fps">30</output> fps</span
+              >
+              <p class="field-hint" id="export-fps-hint">Higher rates give smoother motion and a larger file.</p>
+            </div>
+          </section>
+
+          <!-- Console -->
+          <section class="group console-group" aria-labelledby="console-heading">
+            <h2 class="group-title" id="console-heading">Console</h2>
+            <div class="console" id="console" role="log" aria-label="Console output" tabindex="0">
+              <p>R41 Link [Version 0.1.0]</p>
+              <p>26x27 LCD to MIDI converter</p>
+              <p>&nbsp;</p>
+              <div id="console-lines"></div>
+              <p class="console-prompt">C:\R41LINK&gt;<span class="console-cursor"></span></p>
+            </div>
+          </section>
+        </div>
+
+        <footer class="status-bar">
+          <p class="status-field status-main" id="export-status" aria-live="polite"></p>
+          <p class="status-field status-fixed">26×27 LCD</p>
+          <span class="resize-grip" aria-hidden="true"></span>
+        </footer>
       </div>
     </div>
+
+    <!-- Taskbar -->
+    <div class="taskbar">
+      <div class="menu menu-start">
+        <button type="button" class="start-button" aria-haspopup="menu" aria-expanded="false">
+          <svg viewBox="0 0 8 12" aria-hidden="true" shape-rendering="crispEdges">
+            <rect x="0" y="0" width="3" height="3" fill="#1f2a12" />
+            <rect x="4" y="0" width="3" height="3" fill="#a9bb5c" />
+            <rect x="0" y="4" width="3" height="3" fill="#1f2a12" />
+            <rect x="4" y="4" width="3" height="3" fill="#1f2a12" />
+            <rect x="0" y="8" width="3" height="3" fill="#a9bb5c" />
+            <rect x="4" y="8" width="3" height="3" fill="#1f2a12" />
+          </svg>
+          Start
+        </button>
+        <div class="menu-popup start-menu" role="menu" aria-label="Start" hidden>
+          <div class="start-banner" aria-hidden="true">
+            <span>R41 <b>Link</b></span>
+          </div>
+          <div class="start-items">
+            <button type="button" role="menuitem" data-action="open"><span>Open media...</span></button>
+            <div class="menu-sep" role="separator"></div>
+            <button type="button" role="menuitem" data-action="how"><span>How it works...</span></button>
+            <button type="button" role="menuitem" data-action="about"><span>About R41 Link</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="task-buttons">
+        <button type="button" class="task-button" data-action="focus-app" aria-pressed="true">R41 Link</button>
+      </div>
+      <div class="tray">
+        <svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges">
+          <path
+            fill="currentColor"
+            d="M1 4h2v4H1zM3 3h1v6H3zM4 2h1v8H4zM5 1h1v10H5zM8 3h1v1H8zM9 4h1v4H9zM8 8h1v1H8z"
+          />
+        </svg>
+        <time id="clock"></time>
+      </div>
+    </div>
+
+    <!-- Dialogs -->
+    <dialog class="window dialog dialog-how is-active" id="how-dialog" aria-labelledby="how-title">
+      <header class="title-bar">
+        <h2 class="title-text" id="how-title">How it works</h2>
+        <div class="title-controls">
+          <form method="dialog">
+            <button class="title-btn title-btn-close" aria-label="Close">
+              <svg viewBox="0 0 8 7" aria-hidden="true" shape-rendering="crispEdges">
+                <path
+                  d="M0 0h2v1H0zM6 0h2v1H6zM1 1h2v1H1zM5 1h2v1H5zM2 2h4v1H2zM3 3h2v1H3zM2 4h4v1H2zM1 5h2v1H1zM5 5h2v1H5zM0 6h2v1H0zM6 6h2v1H6z"
+                />
+              </svg>
+            </button>
+          </form>
+        </div>
+      </header>
+      <div class="dialog-body how-body">
+        <section class="group how-map" aria-labelledby="how-map-title">
+          <h3 class="group-title" id="how-map-title">Note map</h3>
+          <canvas
+            id="how-canvas"
+            width="624"
+            height="648"
+            tabindex="0"
+            aria-label="Note map of the current display. Use the arrow keys to select a block."
+            aria-describedby="how-sum"
+            autofocus
+          ></canvas>
+          <label class="checkbox">
+            <input type="checkbox" id="how-numbers" />
+            <span>Show note numbers</span>
+          </label>
+        </section>
+
+        <section class="group how-block" aria-labelledby="how-block-title">
+          <h3 class="group-title" id="how-block-title">Selected block</h3>
+          <div class="field-grid">
+            <span class="field-label">Note:</span>
+            <output class="field-readout" id="how-note">121</output>
+            <span class="field-label">Velocity:</span>
+            <output class="field-readout" id="how-velocity">off</output>
+          </div>
+          <div class="how-bits" id="how-bits" aria-hidden="true">
+            <span>1</span><span>2</span><span>4</span><span>8</span><span>16</span><span>32</span>
+          </div>
+          <p class="how-sum" id="how-sum">No lit pixels, so this block sends no note.</p>
+          <p class="field-hint">Point at a block to inspect it. Click or tap to keep it selected.</p>
+        </section>
+
+        <div class="how-text">
+          <p>
+            The display is 26×27 pixels, split into 117 blocks of 2×3. Each block is one MIDI note: 127 in the top-left
+            corner, counting down row by row to 11 in the bottom-right.
+          </p>
+          <p>
+            Each pixel in a block has a value. A block’s velocity is the sum of its lit pixels, from 1 to 63. Empty
+            blocks send no note.
+          </p>
+          <p>
+            A video exports one chord per frame across the range you choose, at your export frame rate. Tempo is written
+            into the file and used to time each frame.
+          </p>
+        </div>
+
+        <form method="dialog" class="dialog-actions"><button class="btn btn-default">OK</button></form>
+      </div>
+    </dialog>
+
+    <dialog class="window dialog dialog-small is-active" id="about-dialog" aria-labelledby="about-title">
+      <header class="title-bar">
+        <h2 class="title-text" id="about-title">About R41 Link</h2>
+      </header>
+      <div class="dialog-body about-body">
+        <svg class="about-icon" viewBox="0 0 8 12" aria-hidden="true" shape-rendering="crispEdges">
+          <rect x="0" y="0" width="3" height="3" fill="#a9bb5c" />
+          <rect x="4" y="0" width="3" height="3" fill="#1f2a12" />
+          <rect x="0" y="4" width="3" height="3" fill="#a9bb5c" />
+          <rect x="4" y="4" width="3" height="3" fill="#1f2a12" />
+          <rect x="0" y="8" width="3" height="3" fill="#a9bb5c" />
+          <rect x="4" y="8" width="3" height="3" fill="#a9bb5c" />
+        </svg>
+        <div>
+          <p><b>R41 Link</b></p>
+          <p>Version 0.1.0</p>
+          <p>Converts images and video into MIDI for the R41’s 26×27 LCD.</p>
+        </div>
+        <form method="dialog" class="dialog-actions"><button class="btn btn-default" autofocus>OK</button></form>
+      </div>
+    </dialog>
+
     <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/ui.js"></script>
   </body>
 </html>

@@ -59,7 +59,7 @@ let previewDisplayedFrame = -1
 let previewSeekInFlight = false
 /** @type {number} */
 let previewStartFrame = 0
-/** @type {{ fps: number; exportRange: { start: number; end: number }; threshold: number; invert: boolean; scale: number } | null} */
+/** @type {{ fps: number; exportRange: { start: number; end: number } } | null} */
 let previewParams = null
 /** @type {number | null} */
 let videoNoteCountCache = null
@@ -69,26 +69,34 @@ let videoNoteCountParams = null
 let videoNoteCountSession = 0
 /** @type {ReturnType<typeof setTimeout> | null} */
 let videoNoteCountDebounce = null
+/** @type {boolean} */
+let suppressFrameScrubHandler = false
 
-const previewLockTargets = () => [
-  thresholdInput,
-  invertInput,
-  scaleInput,
-  frameInput,
-  exportFrameStart,
-  exportFrameEnd,
-  exportFpsInput,
-  bpmInput,
-  exportVideoMidiBtn,
-  fileInput,
-].filter(Boolean)
+const liveConversion = () => ({
+  threshold: Number(thresholdInput.value),
+  invert: invertInput.checked,
+  scale: Number(scaleInput.value),
+})
+
+/** Re-threshold the cached frame lumas (no video seek); used while range preview is playing. */
+const redrawCurrentFrameFromLumas = () => {
+  if (!currentLumas) return
+  const { threshold, invert, scale } = liveConversion()
+  currentGrid = lumaToGrid(currentLumas, threshold, invert)
+  drawGrid(preview, currentGrid, scale)
+}
 
 const setPreviewUiLocked = (locked) => {
-  for (const el of previewLockTargets()) el.disabled = locked
+  if (exportVideoMidiBtn) exportVideoMidiBtn.disabled = locked
   previewPlaybackBtn.classList.toggle("is-playing", locked)
   previewPlaybackBtn.setAttribute("aria-label", locked ? "Stop preview" : "Play preview")
-  dropzone.style.pointerEvents = locked ? "none" : ""
-  dropzone.style.opacity = locked ? "0.65" : ""
+}
+
+const syncPreviewParamsFromUi = () => {
+  previewParams = {
+    fps: getExportFps(),
+    exportRange: getExportFrameRange(),
+  }
 }
 
 const cancelPreviewAnimationFrame = () => {
@@ -130,14 +138,16 @@ const renderPreviewExportFrame = async (frameIndex, session) => {
   const video = media?.video
   if (!previewPlaying || session !== previewSession || !params || !video) return false
 
-  const { fps, exportRange, threshold, invert, scale } = params
+  const { fps, exportRange } = params
   try {
     const t = Math.min(frameIndex / fps, Math.max(0, video.duration - 0.001))
     await seekVideo(video, t)
     if (!previewPlaying || session !== previewSession) return false
-    const grid = sampleToGrid(video, threshold, invert)
-    currentGrid = grid
-    drawGrid(preview, grid, scale)
+    currentLumas = sampleSourceLuma(video)
+    if (!currentLumas) return false
+    const { threshold, invert, scale } = liveConversion()
+    currentGrid = lumaToGrid(currentLumas, threshold, invert)
+    drawGrid(preview, currentGrid, scale)
     exportStatus.textContent = `Previewing export frame ${frameIndex} of ${exportRange.start}–${exportRange.end}…`
     previewDisplayedFrame = frameIndex
     updateTimelineReadouts(t, frameIndex)
@@ -224,9 +234,6 @@ const togglePreviewPlayback = async () => {
   previewParams = {
     fps: getExportFps(),
     exportRange: getExportFrameRange(),
-    threshold: Number(thresholdInput.value),
-    invert: invertInput.checked,
-    scale: Number(scaleInput.value),
   }
 
   await startPreviewAnimation()
@@ -304,10 +311,15 @@ const timeFromTimelineClientX = (clientX) => {
 /** @param {number} time seconds */
 const scrubToTime = async (time) => {
   const video = media?.video
-  if (!video || previewPlaying) return
+  if (!video) return
   const t = Math.max(0, Math.min(time, Math.max(0, video.duration - 0.001)))
   frameInput.value = String(t)
-  updateTimelineReadouts(t)
+  const frameIndex = timeToExportFrameIndex(t)
+  updateTimelineReadouts(t, frameIndex)
+  if (previewPlaying) {
+    await restartPreviewFromExportFrame(frameIndex)
+    return
+  }
   try {
     await seekVideo(video, t)
     refreshGrid()
@@ -319,11 +331,15 @@ const scrubToTime = async (time) => {
 /** @param {number} frameIndex */
 const previewAtExportFrame = async (frameIndex) => {
   const video = media?.video
-  if (!video || previewPlaying) return
+  if (!video) return
   const fps = getExportFps()
   const t = Math.min(frameIndex / fps, Math.max(0, video.duration - 0.001))
   frameInput.value = String(t)
   updateTimelineReadouts(t, frameIndex)
+  if (previewPlaying) {
+    await restartPreviewFromExportFrame(frameIndex)
+    return
+  }
   try {
     await seekVideo(video, t)
     refreshGrid()
@@ -345,10 +361,22 @@ const updatePlayheadVisual = (seconds = Number(frameInput.value)) => {
 /** @param {number} [seconds] @param {number | undefined} [frameOverride] export frame index when known (preview) */
 const updateTimelineReadouts = (seconds = Number(frameInput.value), frameOverride) => {
   const fps = getExportFps()
+  const video = media?.video
+  let sec = Number(seconds)
+  if (!Number.isFinite(sec)) sec = 0
+  if (video && Number.isFinite(video.duration) && video.duration > 0) {
+    sec = Math.min(Math.max(0, sec), Math.max(0, video.duration - 0.001))
+    const next = String(sec)
+    if (frameInput.value !== next) {
+      suppressFrameScrubHandler = true
+      frameInput.value = next
+      suppressFrameScrubHandler = false
+    }
+  }
   const currentFrame =
-    frameOverride !== undefined ? frameOverride : timeToExportFrameIndex(seconds, fps)
+    frameOverride !== undefined ? frameOverride : timeToExportFrameIndex(sec, fps)
   frameCurrentValue.textContent = String(currentFrame)
-  updatePlayheadVisual(seconds)
+  updatePlayheadVisual(sec)
 }
 
 const updateExportRangeVisual = () => {
@@ -418,6 +446,31 @@ const getExportFrameRange = () => {
     end = swap
   }
   return { start, end }
+}
+
+/** While range preview is playing, jump the playhead and keep advancing from there. */
+const restartPreviewFromExportFrame = async (frameIndex) => {
+  if (!previewPlaying || !media?.video) return
+
+  syncPreviewParamsFromUi()
+  const range = previewParams?.exportRange
+  if (!range) return
+
+  const frame = Math.min(range.end, Math.max(range.start, frameIndex))
+  previewStartFrame = frame
+  previewStartPerf = performance.now()
+  previewDisplayedFrame = frame - 1
+
+  const session = previewSession
+  previewSeekInFlight = true
+  await renderPreviewExportFrame(frame, session)
+  previewSeekInFlight = false
+
+  if (!previewPlaying || session !== previewSession) return
+
+  if (previewAnimFrame === null) {
+    previewAnimFrame = requestAnimationFrame(onPreviewAnimationFrame)
+  }
 }
 
 const syncExportFrameHandles = (active) => {
@@ -551,7 +604,14 @@ const computeVideoMidiNotesCount = async () => {
       sig.fps,
       { start: sig.start, end: sig.end },
     )
-    if (session !== videoNoteCountSession) return
+    if (session !== videoNoteCountSession) {
+      try {
+        await seekVideo(video, savedScrubTime)
+      } catch {
+        /* superseded run left the video elsewhere; restore scrub time */
+      }
+      return
+    }
 
     videoNoteCountCache = countNoteEvents(frames)
     videoNoteCountParams = { ...sig }
@@ -559,9 +619,14 @@ const computeVideoMidiNotesCount = async () => {
 
     await seekVideo(video, savedScrubTime)
     if (session !== videoNoteCountSession) return
-    refreshGrid({ skipMidiNotes: true })
+    refreshGrid({ skipMidiNotes: true, reuseLuma: true })
   } catch {
     if (session === videoNoteCountSession) midiNotesCountEl.textContent = "—"
+    try {
+      await seekVideo(video, savedScrubTime)
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -624,7 +689,9 @@ const updateExportStatus = () => {
 const refreshGrid = (options = {}) => {
   const source = activeSource()
   if (!source) return
-  currentLumas = sampleSourceLuma(source)
+  if (!(options.reuseLuma && currentLumas)) {
+    currentLumas = sampleSourceLuma(source)
+  }
   if (!currentLumas) {
     currentGrid = null
     if (exportVideoMidiBtn) exportVideoMidiBtn.disabled = true
@@ -647,7 +714,7 @@ const refreshGrid = (options = {}) => {
   if (exportVideoMidiBtn) {
     exportVideoMidiBtn.disabled = media?.kind !== "video" || previewPlaying
   }
-  previewPlaybackBtn.disabled = media?.kind !== "video" || previewPlaying
+  previewPlaybackBtn.disabled = media?.kind !== "video"
   previewResetStartBtn.disabled = media?.kind !== "video"
   if (options.skipMidiNotes) return
   updateExportStatus()
@@ -718,7 +785,17 @@ dropzone.addEventListener("drop", (event) => {
 
 thresholdInput.addEventListener("input", () => {
   thresholdValue.textContent = thresholdInput.value
-  refreshGrid()
+  if (previewPlaying) {
+    redrawCurrentFrameFromLumas()
+    return
+  }
+  invalidateVideoNoteCountCache()
+  refreshGrid({ skipMidiNotes: true, reuseLuma: true })
+})
+
+thresholdInput.addEventListener("change", () => {
+  if (previewPlaying) return
+  updateExportStatus()
 })
 
 const syncScaleAria = () => {
@@ -733,32 +810,47 @@ scaleInput.addEventListener("input", () => {
 
 syncScaleAria()
 
-invertInput.addEventListener("change", () => refreshGrid())
+invertInput.addEventListener("change", () => {
+  if (previewPlaying) {
+    redrawCurrentFrameFromLumas()
+    return
+  }
+  invalidateVideoNoteCountCache()
+  refreshGrid({ skipMidiNotes: true, reuseLuma: true })
+  updateExportStatus()
+})
 
 frameInput.addEventListener("input", async () => {
-  if (!media?.video || previewPlaying) return
+  if (suppressFrameScrubHandler || !media?.video) return
   const time = Number(frameInput.value)
-  updateTimelineReadouts(time)
-  media.video.currentTime = time
-  await new Promise((resolve) => {
-    media.video.addEventListener("seeked", resolve, { once: true })
-  })
-  refreshGrid()
+  const frameIndex = timeToExportFrameIndex(time)
+  updateTimelineReadouts(time, frameIndex)
+  if (previewPlaying) {
+    await restartPreviewFromExportFrame(frameIndex)
+    return
+  }
+  try {
+    await seekVideo(media.video, time)
+    refreshGrid()
+  } catch {
+    exportStatus.textContent = "Could not seek video for this frame."
+  }
 })
 
 exportFrameStart.addEventListener("input", () => {
   syncExportFrameHandles("start")
+  if (previewPlaying) syncPreviewParamsFromUi()
   void previewAtExportFrame(Number(exportFrameStart.value))
 })
 exportFrameEnd.addEventListener("input", () => {
   syncExportFrameHandles("end")
+  if (previewPlaying) syncPreviewParamsFromUi()
   void previewAtExportFrame(Number(exportFrameEnd.value))
 })
 
 exportRangeRail?.addEventListener(
   "click",
   (event) => {
-    if (previewPlaying) return
     if (
       event.target instanceof HTMLInputElement &&
       event.target.classList.contains("video-trimmer-export")
@@ -779,6 +871,11 @@ exportFpsInput.addEventListener("input", () => {
   if (!video) return
   rescaleExportFrameRange(video, lastExportFps, fps)
   lastExportFps = fps
+  if (previewPlaying) {
+    syncPreviewParamsFromUi()
+    const t = Number(frameInput.value)
+    void restartPreviewFromExportFrame(timeToExportFrameIndex(t, fps))
+  }
 })
 
 previewPlaybackBtn.addEventListener("click", () => {
