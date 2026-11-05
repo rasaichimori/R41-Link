@@ -20,7 +20,6 @@ const canvas = $("preview")
 const overlay = $("lcd-overlay")
 const scaleInput = $("scale")
 const invertInput = $("invert")
-const appWindow = $("app-window")
 const consoleEl = $("console")
 const consoleLines = $("console-lines")
 const howDialog = $("how-dialog")
@@ -154,7 +153,7 @@ new MutationObserver(() => {
   const loaded = fileName.textContent !== initialName
   body.dataset.media = loaded ? "loaded" : "none"
   docName.textContent = loaded ? fileName.textContent : "Untitled"
-  document.title = loaded ? `${fileName.textContent} - R41 Link` : "R41 Link"
+  document.title = loaded ? `${fileName.textContent} - MIDI Converter` : "MIDI Converter"
   if (loaded) command(`load ${fileName.textContent}`)
 }).observe(fileName, { childList: true, characterData: true, subtree: true })
 
@@ -175,11 +174,210 @@ rewindBtn.addEventListener("click", () => command("rewind"))
 exportBtn.addEventListener("click", () => command("export --midi"))
 invertInput.addEventListener("change", () => command(`invert ${invertInput.checked ? "on" : "off"}`))
 
-/* ───────────── Window ───────────── */
+/* ───────────── Windows ───────────── */
 
-appWindow.querySelector(".title-bar").addEventListener("dblclick", (event) => {
-  if (!event.target.closest(".title-controls")) actions.maximize(appWindow.querySelector('[data-action="maximize"]'))
-})
+const desktop = document.querySelector(".desktop")
+const taskbar = document.querySelector(".taskbar")
+const FLOATING = window.matchMedia("(min-width: 641px)") // below this, windows stack in normal flow
+const SIDE_BY_SIDE = window.matchMedia("(min-width: 900px)") // workspace grid: display beside the side panels
+
+const desktopWindows = () => [...desktop.querySelectorAll(":scope > .window")]
+const topWindow = () => desktopWindows().at(-1)
+const taskButtonFor = (win) => document.querySelector(`.task-button[data-window="${win.id}"]`)
+const isMinimized = (win) => win.classList.contains("is-minimized")
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
+
+const setMaximized = (win, on) => {
+  win.classList.toggle("is-maximized", on)
+  const btn = win.querySelector('[data-action="maximize"]')
+  if (btn) {
+    btn.setAttribute("aria-pressed", String(on))
+    btn.setAttribute("aria-label", on ? "Restore" : "Maximize")
+  }
+  if (on) {
+    win.style.removeProperty("height")
+    win.style.removeProperty("max-width")
+    win.style.removeProperty("max-height")
+  } else {
+    fitWindow(win)
+  }
+}
+
+/* The visible desktop, in the same coordinates as --win-x / --win-y (the desktop's
+   padding edge). Height stops at the taskbar so a window cannot slide under it. */
+const boundsOf = () => {
+  const desk = desktop.getBoundingClientRect()
+  const bar = taskbar.getBoundingClientRect()
+  return {
+    width: desktop.clientWidth,
+    height: Math.max(0, bar.top - desk.top),
+  }
+}
+
+const parsePx = (win, name) => {
+  const value = parseFloat(win.style.getPropertyValue(name))
+  return Number.isFinite(value) ? value : 0
+}
+
+const MIN_W = 180
+const MIN_H = 120
+
+/* A length the user or a resize wrote, rather than the starting min()/calc() width. */
+const pxVar = (win, name) => {
+  const raw = win.style.getPropertyValue(name).trim()
+  if (!raw.endsWith("px")) return null
+  const value = parseFloat(raw)
+  return Number.isFinite(value) ? value : null
+}
+
+/* How tall the window wants to be when nothing has resized it yet. */
+const contentHeight = (win) => {
+  const body = win.querySelector(".window-body")
+  if (!body) return Math.max(MIN_H, win.offsetHeight)
+  return Math.max(MIN_H, Math.ceil(win.offsetHeight - body.offsetHeight + body.scrollHeight))
+}
+
+/* Move without changing the size the user picked. The window stops at the screen edges. */
+const moveWindow = (win, x, y) => {
+  const bounds = boundsOf()
+  const width = win.offsetWidth
+  const height = win.offsetHeight
+  x = clamp(Math.round(x), 0, Math.max(0, bounds.width - width))
+  y = clamp(Math.round(y), 0, Math.max(0, bounds.height - height))
+  win.style.setProperty("--win-x", `${x}px`)
+  win.style.setProperty("--win-y", `${y}px`)
+  win.style.maxWidth = `${Math.max(0, bounds.width - x)}px`
+  win.style.maxHeight = `${Math.max(0, bounds.height - y)}px`
+}
+
+/* Width and height are the size to keep. --win-h remembers it across maximize;
+   --win-w is only written in pixels once a resize sets it, so the starting
+   min()/calc() width can still follow the screen until then. */
+const resizeWindow = (win, x, y, width, height) => {
+  const bounds = boundsOf()
+  width = clamp(Math.round(width), MIN_W, bounds.width)
+  height = clamp(Math.round(height), MIN_H, bounds.height)
+  x = clamp(Math.round(x), 0, Math.max(0, bounds.width - width))
+  y = clamp(Math.round(y), 0, Math.max(0, bounds.height - height))
+  win.style.setProperty("--win-x", `${x}px`)
+  win.style.setProperty("--win-y", `${y}px`)
+  win.style.setProperty("--win-w", `${width}px`)
+  win.style.setProperty("--win-h", `${height}px`)
+  win.style.maxWidth = `${Math.max(0, bounds.width - x)}px`
+  win.style.maxHeight = `${Math.max(0, bounds.height - y)}px`
+  win.style.height = `${height}px`
+}
+
+const fitWindow = (win) => {
+  if (!FLOATING.matches || win.classList.contains("is-maximized") || isMinimized(win)) {
+    win.style.removeProperty("height")
+    win.style.removeProperty("max-width")
+    win.style.removeProperty("max-height")
+    return
+  }
+  const bounds = boundsOf()
+  let x = parsePx(win, "--win-x")
+  let y = parsePx(win, "--win-y")
+  const desiredW = pxVar(win, "--win-w") ?? win.offsetWidth
+  let desiredH = pxVar(win, "--win-h")
+  if (desiredH == null) {
+    desiredH = contentHeight(win)
+    win.style.setProperty("--win-h", `${desiredH}px`)
+  }
+  const width = Math.min(Math.max(desiredW, MIN_W), bounds.width)
+  const height = Math.min(desiredH, bounds.height)
+  x = clamp(x, 0, Math.max(0, bounds.width - width))
+  y = clamp(y, 0, Math.max(0, bounds.height - height))
+  win.style.setProperty("--win-x", `${x}px`)
+  win.style.setProperty("--win-y", `${y}px`)
+  win.style.maxWidth = `${Math.max(0, bounds.width - x)}px`
+  win.style.maxHeight = `${Math.max(0, bounds.height - y)}px`
+  win.style.height = `${Math.min(desiredH, Math.max(0, bounds.height - y))}px`
+}
+
+/* Focusing a window moves it to the end of .desktop, which paints it on top of the others */
+const activateWindow = (win) => {
+  if (!win || isMinimized(win)) return
+  if (topWindow() !== win) desktop.append(win)
+  for (const other of desktopWindows()) {
+    const active = other === win
+    other.classList.toggle("is-active", active)
+    taskButtonFor(other)?.setAttribute("aria-pressed", String(active))
+  }
+}
+
+const minimizeWindow = (win) => {
+  win.classList.add("is-minimized")
+  win.classList.remove("is-active")
+  taskButtonFor(win)?.setAttribute("aria-pressed", "false")
+  activateWindow(desktopWindows().filter((other) => !isMinimized(other)).at(-1))
+}
+
+const restoreWindow = (win) => {
+  win.classList.remove("is-minimized")
+  activateWindow(win)
+  fitWindow(win)
+}
+
+/* Drag a window by its title bar. The window stops at the screen edges. */
+const startDrag = (win, titleBar, event) => {
+  const originX = parsePx(win, "--win-x")
+  const originY = parsePx(win, "--win-y")
+  const startX = event.clientX
+  const startY = event.clientY
+  try { titleBar.setPointerCapture(event.pointerId) } catch { /* already released */ }
+
+  const move = (next) => {
+    moveWindow(win, originX + next.clientX - startX, originY + next.clientY - startY)
+  }
+  const stop = () => titleBar.removeEventListener("pointermove", move)
+  titleBar.addEventListener("pointermove", move)
+  titleBar.addEventListener("pointerup", stop, { once: true })
+  titleBar.addEventListener("pointercancel", stop, { once: true })
+}
+
+/* Resize from an edge or corner. The opposite edge stays put, and the dragged
+   edge stops at the screen. */
+const startResize = (win, edge, event, handle) => {
+  const bounds = boundsOf()
+  const origin = {
+    x: parsePx(win, "--win-x"),
+    y: parsePx(win, "--win-y"),
+    w: win.offsetWidth,
+    h: win.offsetHeight,
+  }
+  const startX = event.clientX
+  const startY = event.clientY
+  const west = edge.includes("w")
+  const east = edge.includes("e")
+  const north = edge.includes("n")
+  const south = edge.includes("s")
+  try { handle.setPointerCapture(event.pointerId) } catch { /* already released */ }
+
+  const move = (next) => {
+    const dx = next.clientX - startX
+    const dy = next.clientY - startY
+    let x = origin.x
+    let y = origin.y
+    let w = origin.w
+    let h = origin.h
+    if (east) w = clamp(Math.round(origin.w + dx), MIN_W, bounds.width - origin.x)
+    if (west) {
+      w = clamp(Math.round(origin.w - dx), MIN_W, origin.x + origin.w)
+      x = origin.x + origin.w - w
+    }
+    if (south) h = clamp(Math.round(origin.h + dy), MIN_H, bounds.height - origin.y)
+    if (north) {
+      h = clamp(Math.round(origin.h - dy), MIN_H, origin.y + origin.h)
+      y = origin.y + origin.h - h
+    }
+    resizeWindow(win, x, y, w, h)
+  }
+  const stop = () => handle.removeEventListener("pointermove", move)
+  handle.addEventListener("pointermove", move)
+  handle.addEventListener("pointerup", stop, { once: true })
+  handle.addEventListener("pointercancel", stop, { once: true })
+}
 
 /* Clock */
 const clock = $("clock")
@@ -231,14 +429,261 @@ const actions = {
     startHowLoop()
   },
   about: () => aboutDialog.showModal(),
-  "focus-app": () => appWindow.scrollIntoView({ block: "nearest" }),
   scheme: (el) => setScheme(el.dataset.scheme),
+  minimize: (el) => {
+    const win = el.closest(".window")
+    if (win) minimizeWindow(win)
+  },
   maximize: (el) => {
-    const on = appWindow.classList.toggle("is-maximized")
-    el.setAttribute("aria-pressed", String(on))
-    el.setAttribute("aria-label", on ? "Restore" : "Maximize")
+    const win = el.closest(".window")
+    if (!win) return
+    if (isMinimized(win)) win.classList.remove("is-minimized")
+    setMaximized(win, !win.classList.contains("is-maximized"))
+    activateWindow(win)
+  },
+  "focus-window": (el) => {
+    const win = document.getElementById(el.dataset.window)
+    if (!win) return
+    const canMinimize = Boolean(win.querySelector('[data-action="minimize"]'))
+    if (!isMinimized(win) && win.classList.contains("is-active") && canMinimize) {
+      minimizeWindow(win)
+      return
+    }
+    restoreWindow(win)
   },
 }
+
+const RESIZE_EDGES = ["n", "s", "e", "w", "ne", "nw", "se", "sw"]
+
+for (const win of desktopWindows()) {
+  for (const edge of RESIZE_EDGES) {
+    const handle = document.createElement("div")
+    handle.className = `resize-handle resize-${edge}`
+    handle.dataset.resize = edge
+    if (edge === "se") handle.setAttribute("aria-label", "Resize")
+    else handle.setAttribute("aria-hidden", "true")
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || !FLOATING.matches || win.classList.contains("is-maximized")) return
+      event.preventDefault()
+      activateWindow(win)
+      startResize(win, edge, event, handle)
+    })
+    win.append(handle)
+  }
+  const grip = win.querySelector(".resize-grip")
+  if (grip) {
+    grip.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || !FLOATING.matches || win.classList.contains("is-maximized")) return
+      event.preventDefault()
+      activateWindow(win)
+      startResize(win, "se", event, grip)
+    })
+  }
+  const titleBar = win.querySelector(".title-bar")
+  titleBar.addEventListener("pointerdown", (event) => {
+    // Activate first: moving the window in the DOM must happen before the pointer is captured
+    activateWindow(win)
+    if (event.button !== 0 || !FLOATING.matches || win.classList.contains("is-maximized")) return
+    if (event.target.closest(".title-controls, .resize-handle")) return
+    startDrag(win, titleBar, event)
+  })
+  titleBar.addEventListener("dblclick", (event) => {
+    if (event.target.closest(".title-controls")) return
+    const btn = win.querySelector('[data-action="maximize"]')
+    if (btn) actions.maximize(btn)
+  })
+  win.addEventListener("pointerdown", () => activateWindow(win))
+}
+
+/* Real scrollbars, because the system ones are overlays that disappear. Each bar
+   drives the client area's own scroll. */
+const SCROLL = {
+  y: {
+    size: (el) => el.scrollHeight,
+    client: (el) => el.clientHeight,
+    pos: (el) => el.scrollTop,
+    set: (el, value) => { el.scrollTop = value },
+    edge: "top",
+    extent: "height",
+    dec: "Scroll up",
+    inc: "Scroll down",
+  },
+  x: {
+    size: (el) => el.scrollWidth,
+    client: (el) => el.clientWidth,
+    pos: (el) => el.scrollLeft,
+    set: (el, value) => { el.scrollLeft = value },
+    edge: "left",
+    extent: "width",
+    dec: "Scroll left",
+    inc: "Scroll right",
+  },
+}
+
+const makeScrollBar = (axis) => {
+  const bar = document.createElement("div")
+  bar.className = axis === "y" ? "vscroll" : "hscroll"
+  bar.setAttribute("role", "scrollbar")
+  bar.setAttribute("aria-orientation", axis === "y" ? "vertical" : "horizontal")
+  bar.setAttribute("aria-valuemin", "0")
+  const button = (dir, label) => {
+    const el = document.createElement("button")
+    el.type = "button"
+    el.className = "scroll-btn"
+    el.dataset.dir = String(dir)
+    el.setAttribute("aria-label", label)
+    return el
+  }
+  const track = document.createElement("div")
+  track.className = "scroll-track"
+  const thumb = document.createElement("div")
+  thumb.className = "scroll-thumb"
+  track.append(thumb)
+  const dec = button(-1, SCROLL[axis].dec)
+  const inc = button(1, SCROLL[axis].inc)
+  bar.append(dec, track, inc)
+  if (axis === "x") {
+    const corner = document.createElement("div")
+    corner.className = "scroll-corner"
+    corner.setAttribute("aria-hidden", "true")
+    bar.append(corner)
+  }
+  return { bar, track, thumb, dec, inc }
+}
+
+const bindScrollBar = (scroller, axis, parts) => {
+  const spec = SCROLL[axis]
+  const { bar, track, thumb, dec, inc } = parts
+
+  const metrics = () => {
+    const overflow = Math.max(0, spec.size(scroller) - spec.client(scroller))
+    const trackSize = axis === "y" ? track.clientHeight : track.clientWidth
+    const thumbSize = overflow > 0 ? Math.max(16, Math.round((trackSize * spec.client(scroller)) / spec.size(scroller))) : trackSize
+    const travel = Math.max(0, trackSize - thumbSize)
+    const pos = overflow > 0 && travel > 0 ? (spec.pos(scroller) / overflow) * travel : 0
+    return { overflow, thumbSize, travel, pos }
+  }
+
+  const paint = () => {
+    const { thumbSize, pos } = metrics()
+    bar.setAttribute("aria-valuemax", String(Math.max(0, spec.size(scroller) - spec.client(scroller))))
+    bar.setAttribute("aria-valuenow", String(Math.round(spec.pos(scroller))))
+    thumb.style[spec.extent] = `${thumbSize}px`
+    thumb.style[spec.edge] = `${pos}px`
+  }
+
+  const hold = (dir, event) => {
+    event.preventDefault()
+    const buttonEl = event.currentTarget
+    const step = () => spec.set(scroller, spec.pos(scroller) + dir * 48)
+    step()
+    try { buttonEl.setPointerCapture(event.pointerId) } catch { /* already released */ }
+    let pulse
+    const wait = setTimeout(() => { pulse = setInterval(step, 50) }, 280)
+    const stop = () => { clearTimeout(wait); clearInterval(pulse) }
+    buttonEl.addEventListener("pointerup", stop, { once: true })
+    buttonEl.addEventListener("pointercancel", stop, { once: true })
+  }
+  dec.addEventListener("pointerdown", (event) => hold(-1, event))
+  inc.addEventListener("pointerdown", (event) => hold(1, event))
+  // Keyboard activation and .click() report detail 0. A real mouse click follows pointerdown, so it is ignored here.
+  dec.addEventListener("click", (event) => {
+    if (event.detail !== 0) return
+    spec.set(scroller, spec.pos(scroller) - 48)
+  })
+  inc.addEventListener("click", (event) => {
+    if (event.detail !== 0) return
+    spec.set(scroller, spec.pos(scroller) + 48)
+  })
+
+  track.addEventListener("pointerdown", (event) => {
+    if (event.target !== track) return
+    const rect = track.getBoundingClientRect()
+    const along = axis === "y" ? event.clientY - rect.top : event.clientX - rect.left
+    const thumbStart = axis === "y" ? thumb.offsetTop : thumb.offsetLeft
+    const dir = along < thumbStart ? -1 : 1
+    spec.set(scroller, spec.pos(scroller) + dir * spec.client(scroller) * 0.9)
+  })
+
+  thumb.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const start = spec.pos(scroller)
+    const origin = axis === "y" ? event.clientY : event.clientX
+    try { thumb.setPointerCapture(event.pointerId) } catch { /* already released */ }
+    const move = (next) => {
+      const { travel, overflow } = metrics()
+      if (travel <= 0) return
+      const delta = (axis === "y" ? next.clientY : next.clientX) - origin
+      spec.set(scroller, start + (delta / travel) * overflow)
+    }
+    const stop = () => thumb.removeEventListener("pointermove", move)
+    thumb.addEventListener("pointermove", move)
+    thumb.addEventListener("pointerup", stop, { once: true })
+    thumb.addEventListener("pointercancel", stop, { once: true })
+  })
+
+  return paint
+}
+
+/* axes is "both", "x", or "y". The scroller keeps its own scroll; the bars are siblings. */
+const attachScrollbars = (scroller, axes) => {
+  const row = document.createElement("div")
+  row.className = "body-row"
+  const main = document.createElement("div")
+  main.className = "body-main"
+  scroller.parentElement.insertBefore(row, scroller)
+  main.append(scroller)
+  row.append(main)
+  const win = scroller.closest(".window")
+  if (!scroller.id) scroller.id = `${win.id}-body`
+  let paintY = () => {}
+  let paintX = () => {}
+  if (axes !== "x") {
+    const vertical = makeScrollBar("y")
+    main.append(vertical.bar)
+    vertical.bar.setAttribute("aria-controls", scroller.id)
+    paintY = bindScrollBar(scroller, "y", vertical)
+  }
+  if (axes !== "y") {
+    const horizontal = makeScrollBar("x")
+    row.append(horizontal.bar)
+    horizontal.bar.setAttribute("aria-controls", scroller.id)
+    paintX = bindScrollBar(scroller, "x", horizontal)
+  }
+  const sync = () => {
+    const overflowY = axes !== "x" && scroller.scrollHeight - scroller.clientHeight > 1
+    const overflowX = axes !== "y" && scroller.scrollWidth - scroller.clientWidth > 1
+    row.classList.toggle("is-scroll-y", overflowY)
+    row.classList.toggle("is-scroll-x", overflowX)
+    if (overflowY) paintY()
+    if (overflowX) paintX()
+  }
+  scroller.addEventListener("scroll", sync, { passive: true })
+  new ResizeObserver(sync).observe(scroller)
+  for (const child of scroller.children) new ResizeObserver(sync).observe(child)
+  new MutationObserver(sync).observe(scroller, { childList: true, subtree: true, attributes: true, characterData: true })
+  sync()
+  return sync
+}
+
+const setupScrollbars = () => {
+  for (const scroller of document.querySelectorAll(".desktop > .window > .window-body")) {
+    attachScrollbars(scroller, "both")
+  }
+  attachScrollbars($("display-pane"), "both")
+  attachScrollbars($("range-pane"), "x")
+}
+
+setupScrollbars()
+activateWindow(topWindow())
+for (const win of desktopWindows()) fitWindow(win)
+window.addEventListener("resize", () => {
+  for (const win of desktopWindows()) fitWindow(win)
+})
+FLOATING.addEventListener("change", () => {
+  for (const win of desktopWindows()) fitWindow(win)
+})
 
 document.addEventListener("click", (event) => {
   const el = event.target instanceof Element ? event.target.closest("[data-action]") : null
@@ -416,9 +861,7 @@ document.addEventListener(
   { passive: false },
 )
 
-/* ───────────── Display: zoom fits the bay ───────────── */
-
-const bay = document.querySelector(".lcd-bay")
+/* ───────────── Display zoom ───────────── */
 
 /** Zoom resizes the canvas box; keep the page from jumping when already scrolled. */
 let zoomScrollLock = null
@@ -467,26 +910,37 @@ scaleInput.addEventListener("input", () => {
   if (body.dataset.media === "none") drawBlank()
 })
 
-// The bay never changes size; cap zoom at the largest size that fits inside it,
-// and return to the zoom you chose whenever there's room again
-let desiredZoom = Number(scaleInput.value)
-scaleInput.addEventListener("input", (event) => {
-  if (event.isTrusted) desiredZoom = Number(scaleInput.value)
-})
+/* When the video range is wider than the column beside the console, it takes
+   that whole bottom row and the console is removed. Widening the window puts
+   the console back. A still-narrow range scrolls inside its own pane. */
+const workspace = document.querySelector(".workspace")
 
-const fitZoom = () => {
-  const w = bay.clientWidth
-  const h = bay.clientHeight
-  if (!(w > 26 && h > 27)) return // not laid out yet
-  const max = Math.max(4, Math.min(24, Math.floor(Math.min(w / 26, h / 27))))
-  scaleInput.max = String(max)
-  const next = String(Math.min(desiredZoom, max))
-  if (scaleInput.value !== next) {
-    scaleInput.value = next
-    scaleInput.dispatchEvent(new Event("input"))
+const layoutWorkspace = () => {
+  if (!SIDE_BY_SIDE.matches) {
+    workspace.classList.remove("is-console-collapsed")
+    return
   }
+  const header = timeline.querySelector(".video-trimmer-header")
+  const fps = timeline.querySelector(".field-fps")
+  const side = workspace.querySelector(".col-side")
+  if (!header || !fps || !side) return
+  const styles = getComputedStyle(workspace)
+  const group = getComputedStyle(timeline)
+  const inner = workspace.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight)
+  const gap = parseFloat(styles.columnGap) || 0
+  const beside = inner - side.offsetWidth - gap - parseFloat(group.paddingLeft) - parseFloat(group.paddingRight)
+  const need = Math.max(header.offsetWidth, fps.offsetWidth)
+  workspace.classList.toggle("is-console-collapsed", need > beside + 1)
 }
-new ResizeObserver(fitZoom).observe(bay)
+
+layoutWorkspace()
+new ResizeObserver(layoutWorkspace).observe(workspace)
+const rangeHeader = timeline.querySelector(".video-trimmer-header")
+const rangeFps = timeline.querySelector(".field-fps")
+if (rangeHeader) new ResizeObserver(layoutWorkspace).observe(rangeHeader)
+if (rangeFps) new ResizeObserver(layoutWorkspace).observe(rangeFps)
+SIDE_BY_SIDE.addEventListener("change", layoutWorkspace)
+document.fonts?.ready.then(layoutWorkspace)
 
 /* Video range stays on screen; when main.js hides it (no video) it becomes inert */
 const syncTimeline = () => {

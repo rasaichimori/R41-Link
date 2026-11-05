@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>R41 Link</title>
+    <title>MIDI Converter</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=VT323&display=swap" rel="stylesheet" />
@@ -12,7 +12,7 @@
   <body data-media="none">
     <div class="desktop">
       <!-- Main application window -->
-      <div class="window app-window is-active" id="app-window">
+      <div class="window app-window" id="app-window" style="--win-x: 16px; --win-y: 16px; --win-w: min(1080px, calc(100% - 32px))">
         <header class="title-bar">
           <svg class="title-icon" viewBox="0 0 8 12" aria-hidden="true" shape-rendering="crispEdges">
             <rect x="0" y="0" width="3" height="3" fill="#a9bb5c" />
@@ -22,16 +22,16 @@
             <rect x="0" y="8" width="3" height="3" fill="#a9bb5c" />
             <rect x="4" y="8" width="3" height="3" fill="#a9bb5c" />
           </svg>
-          <h1 class="title-text">R41 Link - <span id="window-doc">Untitled</span></h1>
+          <h1 class="title-text">MIDI Converter - <span id="window-doc">Untitled</span></h1>
           <div class="title-controls">
             <button type="button" class="title-btn" data-action="how" aria-label="How it works">
               <svg viewBox="0 0 8 8" aria-hidden="true" shape-rendering="crispEdges">
                 <path d="M2 0h4v1H2zM1 1h1v2H1zM6 1h1v2H6zM5 3h1v1H5zM4 4h1v1H4zM3 4h1v2H3zM3 7h2v1H3z" />
               </svg>
             </button>
-            <span class="title-btn is-disabled" aria-hidden="true">
-              <svg viewBox="0 0 8 8" shape-rendering="crispEdges"><path d="M1 6h6v2H1z" /></svg>
-            </span>
+            <button type="button" class="title-btn" data-action="minimize" aria-label="Minimize">
+              <svg viewBox="0 0 8 8" aria-hidden="true" shape-rendering="crispEdges"><path d="M1 6h6v2H1z" /></svg>
+            </button>
             <button type="button" class="title-btn" data-action="maximize" aria-label="Maximize" aria-pressed="false">
               <svg viewBox="0 0 9 8" aria-hidden="true" shape-rendering="crispEdges">
                 <path d="M0 0h9v2H0zM0 2h1v6H0zM8 2h1v6H8zM1 7h7v1H1z" />
@@ -47,7 +47,7 @@
           </div>
         </header>
 
-        <nav class="menubar" role="menubar" aria-label="R41 Link">
+        <nav class="menubar" role="menubar" aria-label="MIDI Converter">
           <div class="menu">
             <button
               type="button"
@@ -130,6 +130,7 @@
           <!-- Display -->
           <section class="group stage" aria-labelledby="preview-heading">
             <h2 class="group-title" id="preview-heading">Display</h2>
+            <div class="pane" id="display-pane">
             <div class="lcd-bay">
               <div class="lcd">
                 <canvas id="preview" width="416" height="432" aria-label="26 by 27 pixel preview"></canvas>
@@ -149,6 +150,7 @@
                 aria-valuetext="16×"
               />
             </label>
+            </div>
           </section>
 
           <div class="col-side">
@@ -248,6 +250,8 @@
             aria-labelledby="video-timeline-heading"
           >
             <h2 class="group-title" id="video-timeline-heading">Video range</h2>
+            <div class="pane pane-x" id="range-pane">
+            <div class="range-fit">
             <div class="video-trimmer" role="group" aria-labelledby="video-timeline-heading">
               <div class="video-trimmer-header">
                 <div class="video-timeline-transport">
@@ -374,6 +378,8 @@
               >
               <p class="field-hint" id="export-fps-hint">Higher rates give smoother motion and a larger file.</p>
             </div>
+            </div>
+            </div>
           </section>
 
           <!-- Console -->
@@ -394,6 +400,46 @@
           <p class="status-field status-fixed">26×27 LCD</p>
           <span class="resize-grip" aria-hidden="true"></span>
         </footer>
+      </div>
+
+      <div
+        class="window"
+        id="studio-window"
+        role="region"
+        aria-labelledby="studio-title"
+        style="--win-x: 80px; --win-y: 60px; --win-w: min(560px, calc(100% - 32px))"
+      >
+        <header class="title-bar">
+          <svg class="title-icon" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges">
+            <rect x="1" y="0" width="2" height="2" fill="#1f2a12" />
+            <rect x="5" y="0" width="2" height="2" fill="#1f2a12" />
+            <rect x="9" y="0" width="2" height="2" fill="#1f2a12" />
+            <rect x="0" y="2" width="12" height="8" fill="#1f2a12" />
+            <rect x="1" y="3" width="10" height="6" fill="#a9bb5c" />
+            <rect x="1" y="10" width="2" height="2" fill="#1f2a12" />
+            <rect x="5" y="10" width="2" height="2" fill="#1f2a12" />
+            <rect x="9" y="10" width="2" height="2" fill="#1f2a12" />
+          </svg>
+          <h2 class="title-text" id="studio-title">Animation Studio</h2>
+          <div class="title-controls">
+            <button type="button" class="title-btn" data-action="minimize" aria-label="Minimize">
+              <svg viewBox="0 0 8 8" aria-hidden="true" shape-rendering="crispEdges"><path d="M1 6h6v2H1z" /></svg>
+            </button>
+            <button type="button" class="title-btn" data-action="maximize" aria-label="Maximize" aria-pressed="false">
+              <svg viewBox="0 0 9 8" aria-hidden="true" shape-rendering="crispEdges">
+                <path d="M0 0h9v2H0zM0 2h1v6H0zM8 2h1v6H8zM1 7h7v1H1z" />
+              </svg>
+            </button>
+            <span class="title-btn title-btn-close is-disabled" aria-hidden="true">
+              <svg viewBox="0 0 8 7" shape-rendering="crispEdges">
+                <path
+                  d="M0 0h2v1H0zM6 0h2v1H6zM1 1h2v1H1zM5 1h2v1H5zM2 2h4v1H2zM3 3h2v1H3zM2 4h4v1H2zM1 5h2v1H1zM5 5h2v1H5zM0 6h2v1H0zM6 6h2v1H6z"
+                />
+              </svg>
+            </span>
+          </div>
+        </header>
+        <div class="window-body studio-body"></div>
       </div>
     </div>
 
@@ -424,7 +470,12 @@
         </div>
       </div>
       <div class="task-buttons">
-        <button type="button" class="task-button" data-action="focus-app" aria-pressed="true">R41 Link</button>
+        <button type="button" class="task-button" data-action="focus-window" data-window="app-window" aria-pressed="true">
+          MIDI Converter
+        </button>
+        <button type="button" class="task-button" data-action="focus-window" data-window="studio-window" aria-pressed="false">
+          Animation Studio
+        </button>
       </div>
       <div class="tray">
         <svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges">

@@ -155,6 +155,7 @@ output {
   flex-direction: column;
   align-items: center;
   gap: 14px;
+  min-height: calc(100dvh - env(safe-area-inset-top, 0px));
   padding: 20px 16px calc(52px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -167,12 +168,210 @@ output {
   box-shadow: var(--window);
 }
 
-.app-window {
-  max-width: 1080px;
+/* Desktop windows float and overlap. Position and width come from --win-x, --win-y
+   and --win-w, set inline on each window and updated while dragging. Stacking follows
+   DOM order: the focused window moves to the end of .desktop, so no z-index is needed.
+   ui.js caps height and width so a window stays above the taskbar; the client area
+   scrolls when the contents are taller than that. */
+.desktop > .window {
+  position: absolute;
+  left: var(--win-x, 16px);
+  top: var(--win-y, 16px);
+  display: flex;
+  flex-direction: column;
+  width: var(--win-w, 100%);
+  max-width: calc(100% - var(--win-x, 0px));
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--win-y, 0px) - max(32px, 30px + env(safe-area-inset-bottom, 0px)));
+  overflow: hidden;
 }
 
-.app-window.is-maximized {
+.desktop > .window > .title-bar,
+.desktop > .window > .menubar,
+.desktop > .window > .status-bar {
+  flex: none;
+}
+
+.desktop > .window > .title-bar {
+  user-select: none;
+}
+
+.desktop > .window > .body-row {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.desktop > .window > .body-row:has(> .body-main > .studio-body) {
+  flex: 1 1 220px;
+}
+
+.body-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.desktop > .window .window-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.desktop > .window .window-body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.desktop > .window.is-maximized {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  width: auto;
   max-width: none;
+  max-height: none;
+}
+
+.desktop > .window.is-minimized {
+  display: none;
+}
+
+.studio-body {
+  background: var(--field, #ffffff);
+  box-shadow: var(--sunken);
+}
+
+/* Windows 98 scrollbars. The system scrollbar on this machine is an overlay that
+   fades away, so the bars are real elements driven by the client area's scroll. */
+.window {
+  --scroll-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' d='M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0z'/%3E%3C/svg%3E");
+  --scroll-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' d='M0 0h7v1H0zM1 1h5v1H1zM2 2h3v1H2zM3 3h1v1H3z'/%3E%3C/svg%3E");
+  --scroll-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' d='M3 0h1v1H3zM2 1h2v1H2zM1 2h3v1H1zM0 3h4v1H0zM1 4h3v1H1zM2 5h2v1H2zM3 6h1v1H3z'/%3E%3C/svg%3E");
+  --scroll-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h3v1H0zM0 5h2v1H0zM0 6h1v1H0z'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .window {
+    --scroll-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%23ececec' d='M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0z'/%3E%3C/svg%3E");
+    --scroll-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%23ececec' d='M0 0h7v1H0zM1 1h5v1H1zM2 2h3v1H2zM3 3h1v1H3z'/%3E%3C/svg%3E");
+    --scroll-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='%23ececec' d='M3 0h1v1H3zM2 1h2v1H2zM1 2h3v1H1zM0 3h4v1H0zM1 4h3v1H1zM2 5h2v1H2zM3 6h1v1H3z'/%3E%3C/svg%3E");
+    --scroll-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='%23ececec' d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h3v1H0zM0 5h2v1H0zM0 6h1v1H0z'/%3E%3C/svg%3E");
+  }
+}
+
+:root[data-theme="dark"] .window {
+  --scroll-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%23ececec' d='M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0z'/%3E%3C/svg%3E");
+  --scroll-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%23ececec' d='M0 0h7v1H0zM1 1h5v1H1zM2 2h3v1H2zM3 3h1v1H3z'/%3E%3C/svg%3E");
+  --scroll-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='%23ececec' d='M3 0h1v1H3zM2 1h2v1H2zM1 2h3v1H1zM0 3h4v1H0zM1 4h3v1H1zM2 5h2v1H2zM3 6h1v1H3z'/%3E%3C/svg%3E");
+  --scroll-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='%23ececec' d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h3v1H0zM0 5h2v1H0zM0 6h1v1H0z'/%3E%3C/svg%3E");
+}
+
+.body-row {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.stage > .body-row {
+  flex: 1 1 auto;
+}
+
+.vscroll,
+.hscroll {
+  display: none;
+  flex: none;
+  background: var(--face, #c0c0c0);
+}
+
+.body-row.is-scroll-y > .body-main > .vscroll {
+  display: flex;
+  flex-direction: column;
+  width: 16px;
+}
+
+.body-row.is-scroll-x > .hscroll {
+  display: flex;
+  flex-direction: row;
+  height: 16px;
+}
+
+.scroll-btn {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: var(--face, #c0c0c0) center no-repeat;
+  box-shadow: var(--raised);
+  color: var(--text, #000000);
+  cursor: default;
+}
+
+.scroll-btn:active {
+  box-shadow: var(--pressed);
+  background-position: calc(50% + 1px) calc(50% + 1px);
+}
+
+.vscroll .scroll-btn {
+  background-size: 7px 4px;
+}
+
+.hscroll .scroll-btn {
+  background-size: 4px 7px;
+}
+
+.vscroll .scroll-btn[data-dir="-1"] { background-image: var(--scroll-up); }
+.vscroll .scroll-btn[data-dir="1"] { background-image: var(--scroll-down); }
+.hscroll .scroll-btn[data-dir="-1"] { background-image: var(--scroll-left); }
+.hscroll .scroll-btn[data-dir="1"] { background-image: var(--scroll-right); }
+
+.scroll-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--face, #c0c0c0);
+}
+
+.scroll-thumb {
+  position: absolute;
+  background: var(--face, #c0c0c0);
+  box-shadow: var(--raised);
+}
+
+.vscroll .scroll-thumb {
+  left: 0;
+  width: 16px;
+}
+
+.hscroll .scroll-thumb {
+  top: 0;
+  height: 16px;
+}
+
+.scroll-thumb:active {
+  box-shadow: var(--pressed);
+}
+
+.scroll-corner {
+  display: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background: var(--face, #c0c0c0);
+}
+
+.body-row.is-scroll-x.is-scroll-y .scroll-corner {
+  display: block;
 }
 
 
@@ -404,6 +603,18 @@ output {
   .col-side { grid-area: side; }
   .timeline { grid-area: timeline; }
   .console-group { grid-area: console; }
+
+  /* Video range takes the bottom row. The row above stays as tall as the side panels. */
+  .workspace.is-console-collapsed {
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "stage side"
+      "timeline timeline";
+  }
+
+  .workspace.is-console-collapsed .console-group {
+    display: none;
+  }
 }
 
 @media (max-width: 899.98px) {
@@ -686,41 +897,89 @@ output {
 
 /* ───────────── Display ───────────── */
 
+.stage,
+.timeline {
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .stage {
+    min-width: 180px;
+  }
+}
+
 .stage {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
+  min-height: 0;
   overflow-anchor: none;
 }
 
-/* Fixed-size bay (bezel); the green LCD panel grows with zoom inside it */
+/* The display and video range scroll on their own. System bars stay hidden;
+   the painted bars are the same controls the window uses. */
+.pane {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.pane::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+#display-pane {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Center the LCD when it fits. A wider panel starts at the left so it can scroll. */
+.lcd-bay,
+.tool-zoom {
+  margin-inline: auto;
+}
+
+.pane-x {
+  flex: 1 1 0;
+  width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.range-fit {
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Bay tracks the column, but never smaller than the LCD at the current zoom. */
 .lcd-bay {
-  container-type: size;
   display: grid;
   place-items: center;
-  width: 100%;
-  max-width: 546px;
+  width: max(100%, min-content);
+  max-width: max(546px, min-content);
   aspect-ratio: 26 / 27;
   overflow-anchor: none;
-  background: var(--face);
+  background: var(--face, #c0c0c0);
   box-shadow: var(--sunken);
 }
 
 .lcd {
   position: relative;
   line-height: 0;
-  background: var(--pixel-off);
-  max-width: 100cqw;
-  max-height: 100cqh;
+  background: var(--pixel-off, #a9bb5c);
 }
 
 #preview {
   display: block;
   width: auto;
   height: auto;
-  max-width: 100cqw;
-  max-height: 100cqh;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
@@ -876,10 +1135,12 @@ body[data-media="none"] .dropzone-file {
 
 .video-trimmer-header {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px 16px;
+  width: max-content;
   margin-bottom: 8px;
 }
 
@@ -1128,6 +1389,8 @@ body[data-media="none"] .dropzone-file {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 2px 16px;
+  width: 0;
+  min-width: 100%;
   font-size: 16px;
 }
 
@@ -1140,14 +1403,17 @@ body[data-media="none"] .dropzone-file {
   grid-template-columns: auto minmax(120px, 280px) auto;
   align-items: center;
   gap: 4px 10px;
+  width: max-content;
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px solid var(--shade);
-  box-shadow: inset 0 1px 0 var(--hi);
+  border-top: 1px solid var(--shade, #808080);
+  box-shadow: inset 0 1px 0 var(--hi, #ffffff);
 }
 
 .field-fps .field-hint {
   grid-column: 1 / -1;
+  width: 0;
+  min-width: 100%;
   margin-top: 0;
 }
 
@@ -1184,8 +1450,62 @@ body[data-media="none"] .dropzone-file {
   align-self: flex-end;
   width: 13px;
   height: 13px;
+  cursor: nwse-resize;
+  touch-action: none;
   background:
     linear-gradient(135deg, transparent 0 45%, var(--hi) 45% 52%, var(--shade) 52% 62%, transparent 62% 68%, var(--hi) 68% 75%, var(--shade) 75% 85%, transparent 85%);
+}
+
+/* Edge and corner grabs. They sit after the window contents so they receive the
+   pointer without a z-index. A maximized window fills the screen and cannot be resized. */
+.resize-handle {
+  position: absolute;
+  touch-action: none;
+}
+
+.resize-n,
+.resize-s {
+  left: 12px;
+  right: 12px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.resize-n { top: 0; }
+.resize-s { bottom: 0; }
+
+.resize-e,
+.resize-w {
+  top: 12px;
+  bottom: 12px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.resize-e { right: 0; }
+.resize-w { left: 0; }
+
+.resize-nw,
+.resize-ne,
+.resize-sw,
+.resize-se {
+  width: 14px;
+  height: 14px;
+}
+
+.resize-nw { top: 0; left: 0; cursor: nwse-resize; }
+.resize-ne { top: 0; right: 0; cursor: nesw-resize; }
+.resize-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.resize-se { bottom: 0; right: 0; cursor: nwse-resize; }
+
+.desktop > .window:not(:has(.resize-grip)) .resize-se {
+  background:
+    linear-gradient(135deg, transparent 0 45%, var(--hi) 45% 52%, var(--shade) 52% 62%, transparent 62% 68%, var(--hi) 68% 75%, var(--shade) 75% 85%, transparent 85%);
+}
+
+.desktop > .window.is-maximized .resize-handle,
+.desktop > .window.is-maximized .resize-grip {
+  display: none;
 }
 
 /* ───────────── Console ───────────── */
@@ -1529,6 +1849,19 @@ body[data-media="none"] .dropzone-file {
 
   .window {
     max-width: none;
+  }
+
+  /* Small screens stack the windows in normal flow instead of floating them.
+     Each one still stops at the taskbar and scrolls inside. */
+  .desktop > .window {
+    position: static;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - max(32px, 30px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .resize-handle {
+    display: none;
   }
 
   .video-trimmer-header {
