@@ -1,26 +1,29 @@
 import {
   DEFAULT_TICKS_PER_FRAME,
-  GRID_W,
+  GRID_SIZE,
   MIDI_BLOCK_COUNT,
   MIDI_BLOCK_H,
   MIDI_BLOCK_W,
   MIDI_COLS,
   MIDI_NOTE_MAX,
-  GRID_H,
-} from "./constants.js"
+  GRID_W,
+} from "./constants"
+
+export type NoteEvent = { note: number; velocity: number }
+export type MidiOptions = { ticksPerFrame?: number; bpm?: number }
 
 /** Match lcd-visualizer `midiPattern` / DSP `velocity_to_pattern` inverse for 1–63. */
-export const patternToVelocity = (pattern) => {
+export const patternToVelocity = (pattern: number) => {
   const value = pattern | 0
   if (value <= 0) return 0
   if (value <= 63) return value
   return 63
 }
 
-export const noteForBlock = (blockIndex) => MIDI_NOTE_MAX - (blockIndex | 0)
+export const noteForBlock = (blockIndex: number) => MIDI_NOTE_MAX - (blockIndex | 0)
 
-/** 6-bit pattern from one 2×3 block (bit order matches midi.js). */
-export const patternFromBlock = (grid, blockCol, blockRow) => {
+/** 6-bit pattern from one 2×3 block (bit order matches midi.ts). */
+export const patternFromBlock = (grid: Uint8Array, blockCol: number, blockRow: number) => {
   let pattern = 0
   for (let sy = 0; sy < MIDI_BLOCK_H; sy += 1) {
     for (let sx = 0; sx < MIDI_BLOCK_W; sx += 1) {
@@ -34,12 +37,8 @@ export const patternFromBlock = (grid, blockCol, blockRow) => {
   return pattern
 }
 
-/**
- * @param {Uint8Array} grid
- * @returns {{ note: number, velocity: number }[]}
- */
-export const gridToNoteEvents = (grid) => {
-  const events = []
+export const gridToNoteEvents = (grid: Uint8Array): NoteEvent[] => {
+  const events: NoteEvent[] = []
   for (let block = 0; block < MIDI_BLOCK_COUNT; block += 1) {
     const col = block % MIDI_COLS
     const row = (block / MIDI_COLS) | 0
@@ -51,8 +50,8 @@ export const gridToNoteEvents = (grid) => {
   return events
 }
 
-const writeVarLen = (value) => {
-  const bytes = []
+const writeVarLen = (value: number) => {
+  const bytes: number[] = []
   let buffer = value & 0x7f
   while ((value >>= 7)) {
     buffer <<= 8
@@ -66,33 +65,29 @@ const writeVarLen = (value) => {
   return bytes
 }
 
-const u32be = (n) => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff]
+const u32be = (n: number) => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff]
 
-const u16be = (n) => [(n >>> 8) & 0xff, n & 0xff]
+const u16be = (n: number) => [(n >>> 8) & 0xff, n & 0xff]
 
-const strBytes = (s) => {
-  const out = []
+const strBytes = (s: string) => {
+  const out: number[] = []
   for (let i = 0; i < s.length; i += 1) out.push(s.charCodeAt(i))
   return out
 }
 
-/**
- * Build a Format 0 SMF from one or more frames of grid data.
- * @param {Uint8Array[]} frames
- * @param {{ ticksPerFrame?: number, bpm?: number }} [options]
- */
-export const encodeSmf = (frames, options = {}) => {
+/** Build a Format 0 SMF from one or more frames of grid data. */
+export const encodeSmf = (frames: Uint8Array[], options: MidiOptions = {}) => {
   const ticksPerFrame = options.ticksPerFrame ?? DEFAULT_TICKS_PER_FRAME
   const bpm = options.bpm ?? 120
   const microPerQuarter = Math.round(60_000_000 / bpm)
   const name = "R41 Link"
 
-  const track = []
+  const track: number[] = []
   track.push(...writeVarLen(0), 0xff, 0x51, 0x03, ...u32be(microPerQuarter).slice(1))
   track.push(...writeVarLen(0), 0xff, 0x03, name.length, ...strBytes(name))
 
   let tick = 0
-  const safeFrames = frames.length > 0 ? frames : [new Uint8Array(GRID_W * GRID_H)]
+  const safeFrames = frames.length > 0 ? frames : [new Uint8Array(GRID_SIZE)]
 
   for (let frameIndex = 0; frameIndex < safeFrames.length; frameIndex += 1) {
     const frameStart = frameIndex * ticksPerFrame
@@ -121,28 +116,18 @@ export const encodeSmf = (frames, options = {}) => {
   const endAt = safeFrames.length * ticksPerFrame
   track.push(...writeVarLen(Math.max(0, endAt - tick)), 0xff, 0x2f, 0x00)
 
-  const header = [
-    0x4d,
-    0x54,
-    0x68,
-    0x64,
-    ...u32be(6),
-    ...u16be(0),
-    ...u16be(1),
-    ...u16be(480),
-  ]
+  const header = [0x4d, 0x54, 0x68, 0x64, ...u32be(6), ...u16be(0), ...u16be(1), ...u16be(480)]
   const trackChunk = [0x4d, 0x54, 0x72, 0x6b, ...u32be(track.length), ...track]
   return new Uint8Array([...header, ...trackChunk])
 }
 
-/** @param {Uint8Array[]} frames */
-export const countNoteEvents = (frames) => {
+export const countNoteEvents = (frames: Uint8Array[]) => {
   let total = 0
   for (const frame of frames) total += gridToNoteEvents(frame).length
   return total
 }
 
-export const downloadMidi = (frames, filename = "r41-link.mid", options) => {
+export const downloadMidi = (frames: Uint8Array[], filename = "r41-link.mid", options?: MidiOptions) => {
   const bytes = encodeSmf(frames, options)
   const blob = new Blob([bytes], { type: "audio/midi" })
   const url = URL.createObjectURL(blob)

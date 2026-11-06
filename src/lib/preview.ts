@@ -1,6 +1,14 @@
-import { GRID_H, GRID_W } from "./constants.js"
+import { GRID_H, GRID_W } from "./constants"
 
-export const drawGrid = (canvas, grid, scale) => {
+export const cssVar = (name: string, fallback = "") =>
+  getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+
+export const pixelColors = () => ({
+  on: cssVar("--pixel-on", "#1f2a12"),
+  off: cssVar("--pixel-off", "#a9bb5c"),
+})
+
+export const drawGrid = (canvas: HTMLCanvasElement, grid: Uint8Array, scale: number) => {
   const cell = Math.max(1, scale | 0)
   const w = GRID_W * cell
   const h = GRID_H * cell
@@ -11,10 +19,11 @@ export const drawGrid = (canvas, grid, scale) => {
   const ctx = canvas.getContext("2d")
   if (!ctx) return
 
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--pixel-off").trim() || "#101812"
+  const { on, off } = pixelColors()
+  ctx.fillStyle = off
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--pixel-on").trim() || "#e8f2e6"
+  ctx.fillStyle = on
   for (let y = 0; y < GRID_H; y += 1) {
     for (let x = 0; x < GRID_W; x += 1) {
       if (!grid[y * GRID_W + x]) continue

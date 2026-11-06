@@ -1,10 +1,11 @@
 /* R41 Link: late-90s desktop UI
-   Hooks used by main.js / preview.js (keep these):
-   --pixel-on, --pixel-off                    colors painted on the canvas
+   Hooks used by the components (keep these):
+   --pixel-on, --pixel-off                    colors painted on the canvases
    .dropzone.is-dragover                      drag state on the drop zone
+   .desktop.is-file-dragging                  a file is being dragged over the page
    .video-timeline-play.is-playing            play button state
-   --playhead-ratio                           on #frame-playhead
-   --range-start-ratio / --range-end-ratio    on #export-range-fill
+   --playhead-ratio                           on .video-trimmer-playhead
+   --range-start-ratio / --range-end-ratio    on .video-trimmer-range-fill
    .video-trimmer-track                       its box maps clicks to time */
 
 /* ───────────── Color schemes ───────────── */
@@ -171,7 +172,7 @@ output {
 /* Desktop windows float and overlap. Position and width come from --win-x, --win-y
    and --win-w, set inline on each window and updated while dragging. Stacking follows
    DOM order: the focused window moves to the end of .desktop, so no z-index is needed.
-   ui.js caps height and width so a window stays above the taskbar; the client area
+   The window manager caps height and width so a window stays above the taskbar; the client area
    scrolls when the contents are taller than that. */
 .desktop > .window {
   position: absolute;
@@ -996,7 +997,7 @@ output {
   pointer-events: none;
 }
 
-body.is-file-dragging .lcd-overlay {
+.desktop.is-file-dragging .lcd-overlay {
   display: block;
 }
 
@@ -1030,7 +1031,7 @@ body.is-file-dragging .lcd-overlay {
 }
 
 .dropzone.is-dragover,
-body.is-file-dragging .dropzone {
+.desktop.is-file-dragging .dropzone {
   background: var(--sel);
   color: var(--sel-text);
 }
@@ -1058,7 +1059,7 @@ body.is-file-dragging .dropzone {
   white-space: nowrap;
 }
 
-body[data-media="none"] .dropzone-file {
+.desktop[data-media="none"] .dropzone-file {
   color: var(--text-dim);
 }
 
@@ -1106,13 +1107,9 @@ body[data-media="none"] .dropzone-file {
   color: var(--text);
 }
 
-.actions:has(#export-video-midi:not([hidden])) .actions-empty {
-  display: none;
-}
-
 /* ───────────── Timeline ───────────── */
 
-/* main.js sets [hidden] when no video is loaded; keep it on screen, disabled */
+/* [hidden] when no video is loaded; keep it on screen, disabled */
 #video-timeline[hidden] {
   display: block !important;
 }

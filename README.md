@@ -33,6 +33,12 @@ npm run build
 npm run preview
 ```
 
+Type and Svelte checks:
+
+```bash
+npm run check
+```
+
 ## Usage
 
 1. Drop or select **image**, **GIF**, or **video**.
@@ -43,19 +49,44 @@ npm run preview
 
 ## Project layout
 
+Svelte 5 + TypeScript, built with Vite.
+
 ```
 R41-Link/
 ├── index.html
 ├── package.json
-├── vite.config.js
-├── README.md
+├── vite.config.ts
+├── svelte.config.js
+├── tsconfig.json
 └── src/
-    ├── main.js       # upload UI, video scrubbing
-    ├── constants.js  # 26×27 / MIDI block constants
-    ├── raster.js     # media → binary grid
-    ├── preview.js    # scaled canvas preview
-    ├── midi.js       # grid → SMF encoder
-    └── style.css
+    ├── main.ts                     # mounts App
+    ├── App.svelte                  # app context, page-wide drop + keyboard shortcuts
+    ├── style.css                   # the whole late-90s desktop theme (global)
+    ├── components/
+    │   ├── ConverterWindow.svelte  # MIDI Converter window: menubar, workspace, status bar
+    │   ├── StudioWindow.svelte
+    │   ├── Window.svelte           # draggable / resizable window frame
+    │   ├── Workspace.svelte        # panel grid; hides the console when the range needs the row
+    │   ├── ScrollPane.svelte       # pane with painted scrollbars (ScrollBar.svelte)
+    │   ├── Taskbar.svelte
+    │   ├── PixelIcon.svelte
+    │   ├── menu/                   # Menu, MenuItem
+    │   ├── panels/                 # Display, Source, Conversion, Export, Timeline, Console
+    │   └── dialogs/                # Dialog frame, How it works, About
+    └── lib/
+        ├── converter.svelte.ts     # media → grid state, range preview playback, MIDI export
+        ├── windows.svelte.ts       # window stacking, drag, resize, maximize
+        ├── menus.svelte.ts         # open menu, focus return, keyboard navigation
+        ├── consoleLog.svelte.ts
+        ├── scheme.svelte.ts        # color scheme setting
+        ├── context.ts              # typed app context
+        ├── constants.ts            # 26×27 / MIDI block constants
+        ├── raster.ts               # media → binary grid
+        ├── video.ts                # seeking and frame sampling
+        ├── preview.ts              # scaled canvas preview
+        ├── glyphs.ts               # pixel font, drop overlay
+        ├── noteMap.ts              # How it works note map drawing
+        └── midi.ts                 # grid → SMF encoder
 ```
 
 ## Implemented vs stubbed

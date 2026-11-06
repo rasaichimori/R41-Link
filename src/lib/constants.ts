@@ -19,3 +19,9 @@ export const DEFAULT_TICKS_PER_FRAME = 480
 export const DEFAULT_EXPORT_FPS = 30
 export const MIN_EXPORT_FPS = 1
 export const MAX_EXPORT_FPS = 60
+
+export const DEFAULT_BPM = 120
+export const MIN_BPM = 1
+export const MAX_BPM = 999
+
+export const EMPTY_GRID = new Uint8Array(GRID_SIZE)
