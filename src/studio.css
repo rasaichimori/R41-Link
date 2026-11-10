@@ -1,0 +1,798 @@
+/* ───────────── Animation Studio ───────────── */
+
+:root {
+  --pasteboard: #a4a4a4;
+  --cell: 16px;
+  --tl-grid: #d4d4d4;
+  --tl-grid-5: #ececec;
+  --tl-empty: #f4f4f4;
+  --onion-prev: #1f2a12;
+  --onion-next: #2346c8;
+  --playhead: #e00000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pasteboard: #2a2a2d;
+    --tl-grid: #333336;
+    --tl-grid-5: #29292b;
+    --tl-empty: #222224;
+  }
+}
+
+:root[data-theme="dark"] {
+  --pasteboard: #2a2a2d;
+  --tl-grid: #333336;
+  --tl-grid-5: #29292b;
+  --tl-empty: #222224;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.icon {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  line-height: 0;
+}
+
+.icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.icon-lg {
+  width: 32px;
+  height: 32px;
+}
+
+/* ───────────── Toolbar (flat, raises on hover) ───────────── */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px;
+  border-top: 1px solid var(--shade);
+  border-bottom: 1px solid var(--shade);
+  box-shadow: inset 0 1px 0 var(--hi), 0 1px 0 var(--hi);
+}
+
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: default;
+}
+
+.tb-icon {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.tb-btn:hover:not(:disabled) {
+  box-shadow: inset -1px -1px var(--shade), inset 1px 1px var(--hi);
+}
+
+.tb-btn:active:not(:disabled),
+.tb-btn[aria-pressed="true"] {
+  box-shadow: inset -1px -1px var(--hi), inset 1px 1px var(--shade);
+}
+
+.tb-btn[aria-pressed="true"] {
+  background: repeating-conic-gradient(var(--face) 0 25%, var(--hi) 0 50%) 0 0 / 2px 2px;
+}
+
+.tb-btn:active:not(:disabled) > * {
+  transform: translate(1px, 1px);
+}
+
+.tb-btn:focus-visible {
+  outline: 1px dotted var(--text);
+  outline-offset: -4px;
+}
+
+.tb-btn:disabled {
+  color: var(--text-dim);
+  text-shadow: 1px 1px 0 var(--emboss);
+}
+
+.tb-btn:disabled .icon {
+  filter: grayscale(1) opacity(0.45) drop-shadow(1px 1px 0 var(--emboss));
+}
+
+.tb-sep {
+  width: 2px;
+  height: 24px;
+  margin: 0 4px;
+  border-left: 1px solid var(--shade);
+  border-right: 1px solid var(--hi);
+}
+
+#play-btn .icon-stop,
+#play-btn.is-playing .icon-play {
+  display: none;
+}
+
+#play-btn.is-playing .icon-stop {
+  display: inline-block;
+}
+
+/* ───────────── Layout ───────────── */
+
+#studio-window .window-body {
+  padding: 8px 6px 6px;
+}
+
+.studio {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  grid-template-areas:
+    "timeline timeline"
+    "tools stage"
+    "props props";
+  gap: 14px 12px;
+  align-items: start;
+}
+
+.timeline-panel { grid-area: timeline; }
+.tools-panel { grid-area: tools; }
+.pasteboard { grid-area: stage; }
+.props-panel { grid-area: props; }
+
+/* ───────────── Timeline ───────────── */
+
+.tl {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  padding: 2px;
+  background: var(--field);
+  box-shadow: var(--sunken);
+}
+
+.tl-layers {
+  border-right: 1px solid var(--shade);
+}
+
+.tl-layers-head {
+  height: 22px;
+  border-bottom: 1px solid var(--shade);
+  background: var(--face);
+}
+
+.tl-layer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 6px;
+  background: var(--sel);
+  color: var(--sel-text);
+}
+
+.tl-layer-name {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.tl-scroll {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: default;
+  touch-action: pan-x;
+}
+
+.tl-scroll:focus-visible {
+  outline: 1px dotted var(--text);
+  outline-offset: -2px;
+}
+
+.tl-track {
+  position: relative;
+  min-width: 100%;
+}
+
+/* Ruler with a tick per frame and numbers at 1, 5, 10... */
+.tl-ruler {
+  position: relative;
+  height: 22px;
+  cursor: ew-resize;
+  border-bottom: 1px solid var(--shade);
+  background:
+    repeating-linear-gradient(to right, transparent 0 calc(var(--cell) - 1px), var(--shade) calc(var(--cell) - 1px) var(--cell))
+      0 100% / 100% 5px no-repeat,
+    var(--face);
+}
+
+.tl-ruler span {
+  position: absolute;
+  top: 1px;
+  padding-left: 2px;
+  font-family: var(--font-term);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text);
+  pointer-events: none;
+}
+
+/* Cells: every frame slot drawn by the background, existing frames on top */
+.tl-cells {
+  position: relative;
+  height: 30px;
+  background:
+    repeating-linear-gradient(to right, transparent 0 calc(var(--cell) - 1px), var(--tl-grid) calc(var(--cell) - 1px) var(--cell)),
+    repeating-linear-gradient(to right, transparent 0 calc(var(--cell) * 4), var(--tl-grid-5) calc(var(--cell) * 4) calc(var(--cell) * 5)),
+    var(--tl-empty);
+}
+
+.tl-frame {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--cell);
+  background: var(--field);
+  box-shadow: inset -1px 0 0 var(--tl-grid);
+}
+
+.tl-frame.is-fifth {
+  background: color-mix(in srgb, var(--field) 88%, var(--text));
+}
+
+/* Keyframe dot: filled when the frame has pixels, hollow when blank */
+.tl-frame::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--text);
+}
+
+.tl-frame.has-ink::after {
+  background: var(--text);
+}
+
+.tl-frame.is-selected {
+  background: var(--sel);
+  touch-action: none; /* on touch, dragging a selected frame moves it instead of scrolling */
+  cursor: grab;
+}
+
+.tl-frame.is-selected::after {
+  box-shadow: inset 0 0 0 1.5px var(--sel-text);
+}
+
+.tl-frame.is-selected.has-ink::after {
+  background: var(--sel-text);
+}
+
+.tl-track.is-moving,
+.tl-track.is-moving .tl-frame {
+  cursor: grabbing;
+}
+
+.tl-track.is-moving .tl-frame.is-selected {
+  opacity: 0.55;
+}
+
+/* Where dragged frames will land */
+.tl-drop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  margin-left: -1px;
+  background: var(--text);
+  box-shadow: 0 0 0 1px var(--field);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.tl-drop::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 11px;
+  height: 6px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background: var(--text);
+}
+
+/* Add-frame affordance: "+" in the first empty slot, stronger on hover */
+.tl-add,
+.tl-add-range {
+  position: absolute;
+  top: 23px;
+  height: 30px;
+  pointer-events: none;
+}
+
+.tl-add {
+  width: var(--cell);
+  opacity: 0.4;
+}
+
+.tl-add::before,
+.tl-add::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: var(--text);
+}
+
+.tl-add::before {
+  width: 9px;
+  height: 1px;
+  margin: 0 0 0 -4px;
+}
+
+.tl-add::after {
+  width: 1px;
+  height: 9px;
+  margin: -4px 0 0 0;
+}
+
+.tl-add.is-hover {
+  opacity: 1;
+  background: var(--sel);
+}
+
+.tl-add.is-hover::before,
+.tl-add.is-hover::after {
+  background: var(--sel-text);
+}
+
+.tl-add-range {
+  background: color-mix(in srgb, var(--sel) 22%, transparent);
+}
+
+.tl-track.is-over-empty {
+  cursor: copy;
+}
+
+/* Onion skin range bracket on the ruler */
+.tl-onion {
+  position: absolute;
+  top: 3px;
+  height: 15px;
+  border: 1px solid var(--sel);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--sel) 18%, transparent);
+  pointer-events: none;
+}
+
+/* Playhead: red marker on the ruler with a line through the cells */
+.tl-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--cell);
+  pointer-events: none;
+}
+
+.tl-playhead::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 0;
+  right: 0;
+  height: 20px;
+  border: 1px solid #900;
+  background: rgb(255 60 60 / 0.55);
+}
+
+.tl-playhead::after {
+  content: "";
+  position: absolute;
+  top: 21px;
+  bottom: 0;
+  left: calc(50% - 1px);
+  width: 1px;
+  background: var(--playhead);
+}
+
+.tl-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin-top: 10px;
+}
+
+.tl-onion-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tl-onion-count .trackbar {
+  width: 130px;
+}
+
+.tl-onion-count .field-readout {
+  min-width: 34px;
+}
+
+.tl-foot:has(#onion-toggle:not(:checked)) .tl-onion-count,
+.tl-foot:has(#onion-toggle:not(:checked)) .checkbox:has(#onion-next) {
+  opacity: 0.5;
+}
+
+.tl-readouts {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.tl-readouts .status-field {
+  min-width: 56px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right-click menu for frames */
+.context-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+}
+
+/* ───────────── Tools palette ───────────── */
+
+.tools-panel {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 40px);
+  gap: 2px;
+}
+
+@media (max-width: 760px) {
+  .tool-grid {
+    grid-auto-flow: column;
+    grid-template-columns: none;
+  }
+}
+
+.tool-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: var(--face);
+  box-shadow: var(--raised);
+  color: var(--text);
+  cursor: default;
+}
+
+.tool-btn:active,
+.tool-btn[aria-checked="true"] {
+  box-shadow: var(--pressed);
+}
+
+.tool-btn[aria-checked="true"] {
+  background: repeating-conic-gradient(var(--face) 0 25%, var(--hi) 0 50%) 0 0 / 2px 2px;
+}
+
+.tool-btn:active > *,
+.tool-btn[aria-checked="true"] > * {
+  transform: translate(1px, 1px);
+}
+
+.tool-btn:focus-visible {
+  outline: 1px dotted var(--text);
+  outline-offset: -5px;
+}
+
+.tool-caption {
+  margin: 12px 0 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--shade);
+  box-shadow: inset 0 1px 0 var(--hi);
+}
+
+/* ───────────── Stage ───────────── */
+
+.pasteboard {
+  container-type: size;
+  display: grid;
+  place-items: center;
+  height: clamp(360px, 58vh, 620px);
+  margin-top: 8px;
+  background: var(--pasteboard);
+  box-shadow: var(--sunken);
+}
+
+#studio-window .stage {
+  position: relative;
+  width: min(calc(100cqw - 40px), calc((100cqh - 40px) * 26 / 27));
+  aspect-ratio: 26 / 27;
+  background: var(--pixel-off);
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 0.35);
+}
+
+#stage-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+#stage-canvas:focus-visible {
+  outline: 1px dotted var(--text);
+  outline-offset: 4px;
+}
+
+#studio-window .stage-grid,
+#studio-window .stage-blocks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#studio-window .stage-grid {
+  background-image:
+    linear-gradient(to right, rgb(31 42 18 / 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(31 42 18 / 0.16) 1px, transparent 1px);
+  background-size:
+    calc(100% / 26) 100%,
+    100% calc(100% / 27);
+}
+
+#studio-window .stage-blocks {
+  display: none;
+  background-image:
+    linear-gradient(to right, rgb(35 70 200 / 0.55) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(35 70 200 / 0.55) 1px, transparent 1px);
+  background-size:
+    calc(100% / 13) 100%,
+    100% calc(100% / 9);
+}
+
+#studio-window .stage.no-grid .stage-grid {
+  display: none;
+}
+
+#studio-window .stage.show-blocks .stage-blocks {
+  display: block;
+}
+
+#studio-window .stage-cursor {
+  position: absolute;
+  width: calc(100% / 26);
+  height: calc(100% / 27);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px #fff, 0 0 0 2px #000;
+}
+
+#studio-window .stage.is-eraser .stage-cursor {
+  box-shadow: 0 0 0 1px #000, 0 0 0 2px #fff;
+}
+
+/* ───────────── Properties ───────────── */
+
+.props {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+
+.notes-readout {
+  display: inline-block;
+  padding: 2px 8px 0;
+  background: #000;
+  box-shadow: var(--sunken);
+  color: #39ff14;
+  font-family: var(--font-term);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.prop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.prop-doc {
+  gap: 8px;
+  padding-right: 16px;
+  border-right: 1px solid var(--shade);
+  box-shadow: 1px 0 0 var(--hi);
+}
+
+.prop .text-field {
+  width: 64px;
+}
+
+.prop-static {
+  min-width: 0;
+  text-align: center;
+}
+
+.prop .notes-readout {
+  min-width: 76px;
+  font-size: 26px;
+  line-height: 24px;
+}
+
+.prop-export {
+  margin-left: auto;
+  min-height: 32px;
+  padding: 2px 18px;
+}
+
+/* ───────────── Status bar ───────────── */
+
+.status-pos {
+  min-width: 96px;
+}
+
+/* ───────────── Dialogs ───────────── */
+
+.dialog-keys {
+  width: min(520px, calc(100vw - 24px));
+}
+
+.keys-table {
+  border-collapse: collapse;
+  width: 100%;
+  background: var(--field);
+  box-shadow: var(--sunken);
+}
+
+.keys-table th,
+.keys-table td {
+  padding: 4px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--lite);
+}
+
+.keys-table th {
+  font-weight: 400;
+  white-space: nowrap;
+  font-family: var(--font-term);
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.dialog-note {
+  opacity: 0.85;
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog .dialog-body {
+  overflow-y: auto;
+}
+
+.about-icon {
+  width: 48px;
+  height: 48px;
+}
+
+/* ───────────── Small screens ───────────── */
+
+@media (max-width: 760px) {
+  .studio {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "timeline"
+      "tools"
+      "stage"
+      "props";
+  }
+
+  .tools-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+
+  .tool-caption {
+    margin: 0;
+    padding: 0 0 0 12px;
+    border-top: 0;
+    border-left: 1px solid var(--shade);
+    box-shadow: inset 1px 0 0 var(--hi);
+  }
+
+  .pasteboard {
+    height: auto;
+    aspect-ratio: 26 / 27;
+    margin-top: 0;
+  }
+
+  .tl {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .tl-layer-pencil {
+    display: none;
+  }
+
+  .tl-readouts {
+    margin-left: 0;
+  }
+
+  .tb-btn:not(.tb-icon) > span:not(.icon) {
+    display: none;
+  }
+
+  .tb-cut,
+  .tb-first,
+  .tb-last {
+    display: none;
+  }
+
+  .tb-btn:not(.tb-icon),
+  .tb-icon {
+    width: 28px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .toolbar {
+    gap: 0;
+    padding: 3px 2px;
+  }
+
+  .tb-sep {
+    margin: 0 2px;
+  }
+
+  .prop-doc {
+    display: none;
+  }
+
+  .prop-export {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+
+#studio-window > .toolbar {
+  flex: none;
+}
+
+#studio-window .stage {
+  display: block;
+  grid-area: auto;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: unset;
+  overflow: visible;
+}

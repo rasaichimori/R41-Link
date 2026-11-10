@@ -73,22 +73,31 @@ export class MenuController {
     else this.show(id, focusFirst)
   }
 
+  #sameWindow = (a: MenuEntry, b: MenuEntry) => a.root.closest(".window") === b.root.closest(".window")
+
   /** Hovering another menubar title while one is open switches to it. */
   hover = (id: string) => {
-    if (this.openId && this.openId !== id && this.isBarMenu(id) && this.isBarMenu(this.openId)) this.show(id)
+    const open = this.#find(this.openId)
+    const next = this.#find(id)
+    if (!open || !next || open === next || !open.bar || !next.bar || !this.#sameWindow(open, next)) return
+    this.show(id)
   }
 
-  /** Left/Right from an open menubar menu moves to its neighbour. */
+  /** Left/Right from an open menubar menu moves to its neighbour in the same window. */
   step = (id: string, direction: 1 | -1) => {
-    const bar = this.#barMenus
+    const current = this.#find(id)
+    if (!current) return false
+    const bar = this.#barMenus.filter((entry) => this.#sameWindow(entry, current))
     const index = bar.findIndex((entry) => entry.id === id)
     if (index < 0) return false
     this.show(bar[(index + direction + bar.length) % bar.length].id, true)
     return true
   }
 
-  openByKey = (key: string) => {
-    const entry = this.#barMenus.find((candidate) => candidate.accessKey === key.toLowerCase())
+  /** Alt+key opens the menubar menu in `within` when that window is given. */
+  openByKey = (key: string, within?: HTMLElement | null) => {
+    const matches = this.#barMenus.filter((candidate) => candidate.accessKey === key.toLowerCase())
+    const entry = within ? matches.find((candidate) => within.contains(candidate.root)) : matches[0]
     if (!entry) return false
     this.show(entry.id, true)
     return true

@@ -68,14 +68,12 @@
       <rect {x} {y} width="3" height="3" fill={CELLS_LIT[name][i] ? LIT : DARK} />
     {/each}
   {:else if name === "studio"}
-    <rect x="1" y="0" width="2" height="2" fill={DARK} />
-    <rect x="5" y="0" width="2" height="2" fill={DARK} />
-    <rect x="9" y="0" width="2" height="2" fill={DARK} />
-    <rect x="0" y="2" width="12" height="8" fill={DARK} />
-    <rect x="1" y="3" width="10" height="6" fill={LIT} />
-    <rect x="1" y="10" width="2" height="2" fill={DARK} />
-    <rect x="5" y="10" width="2" height="2" fill={DARK} />
-    <rect x="9" y="10" width="2" height="2" fill={DARK} />
+    <rect x="0" y="1" width="12" height="10" fill={LIT} />
+    <rect x="2" y="3" width="2" height="2" fill={DARK} />
+    <rect x="5" y="5" width="2" height="2" fill={DARK} />
+    <rect x="8" y="7" width="2" height="2" fill={DARK} />
+    <rect x="0" y="0" width="12" height="1" fill="#000" />
+    <rect x="0" y="11" width="12" height="1" fill="#000" />
   {:else if name === "folder"}
     <path fill="#000" d="M1 3h11v1H1zM12 4h1v2h-1zM13 6h16v1H13zM0 4h1v21H0zM29 7h1v18h-1zM1 25h28v1H1z" />
     <path fill="#e8c840" d="M1 4h11v2h1v1h16v18H1z" />

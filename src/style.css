@@ -125,6 +125,12 @@ body {
   margin: 0;
   padding-top: env(safe-area-inset-top, 0px);
   background: var(--desktop);
+  user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
 }
 
 h1,

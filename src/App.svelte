@@ -2,29 +2,36 @@
   import { onMount } from "svelte"
   import { on } from "svelte/events"
   import ConverterWindow from "./components/ConverterWindow.svelte"
+  import FrameMenu from "./components/studio/FrameMenu.svelte"
   import StudioWindow from "./components/StudioWindow.svelte"
   import Taskbar from "./components/Taskbar.svelte"
   import AboutDialog from "./components/dialogs/AboutDialog.svelte"
   import HowDialog from "./components/dialogs/HowDialog.svelte"
+  import KeysDialog from "./components/dialogs/KeysDialog.svelte"
+  import StudioAboutDialog from "./components/dialogs/StudioAboutDialog.svelte"
   import { ConsoleLog } from "./lib/consoleLog.svelte"
   import { setApp, type AppActions } from "./lib/context"
   import { Converter } from "./lib/converter.svelte"
   import { hasFiles, openFilePicker } from "./lib/files"
   import { MenuController } from "./lib/menus.svelte"
   import { SchemeSetting } from "./lib/scheme.svelte"
+  import { Studio } from "./lib/studio.svelte"
   import { DesktopWindow, WindowManager } from "./lib/windows.svelte"
 
   const log = new ConsoleLog()
   const converter = new Converter(log)
   const menus = new MenuController()
   const scheme = new SchemeSetting()
+  const studio = new Studio(scheme)
   const windows = new WindowManager([
     new DesktopWindow("app-window", "MIDI Converter", 16, 16, "min(1080px, calc(100% - 32px))"),
-    new DesktopWindow("studio-window", "Animation Studio", 80, 60, "min(560px, calc(100% - 32px))"),
+    new DesktopWindow("studio-window", "Animation Studio", 48, 36, "min(1080px, calc(100% - 32px))"),
   ])
 
   let howDialog: HowDialog
   let aboutDialog: AboutDialog
+  let keysDialog: KeysDialog
+  let studioAbout: StudioAboutDialog
 
   const actions: AppActions = {
     open: () => openFilePicker(converter.pickFiles),
@@ -51,7 +58,7 @@
     about: () => aboutDialog.show(),
   }
 
-  setApp({ converter, log, windows, menus, scheme, actions })
+  setApp({ converter, log, windows, menus, scheme, studio, actions })
 
   const documentTitle = $derived(converter.fileName ? `${converter.fileName} - MIDI Converter` : "MIDI Converter")
 
@@ -89,7 +96,9 @@
     converter.pickFiles(event.dataTransfer?.files)
   }
 
-  const dialogOpen = () => howDialog.isOpen() || aboutDialog.isOpen()
+  const dialogOpen = () => howDialog?.isOpen() || aboutDialog?.isOpen() || studio.keysOpen || studio.aboutOpen
+
+  const activeWindow = () => windows.list.find((win) => win.id === windows.activeId)?.el ?? null
 
   /** Space plays the range unless the focused control uses Space itself. */
   const spaceIsFree = (target: EventTarget | null) => {
@@ -103,20 +112,24 @@
   const onKeydown = (event: KeyboardEvent) => {
     if (dialogOpen()) return
 
-    // Alt+F / Alt+V / Alt+H open the menus
-    if (event.altKey && !event.ctrlKey && !event.metaKey) {
-      if (menus.openByKey(event.key)) event.preventDefault()
-      return
-    }
+    const studioActive = windows.activeId === "studio-window"
 
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o") {
-      event.preventDefault()
-      actions.open()
+    // Alt+letter opens the menubar of the window in front
+    if (event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (menus.openByKey(event.key, activeWindow())) event.preventDefault()
       return
     }
 
     if (event.key === "Escape" && menus.openId) {
       menus.close(true)
+      return
+    }
+
+    if (studioActive) return
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o") {
+      event.preventDefault()
+      actions.open()
       return
     }
 
@@ -137,6 +150,8 @@
   }
 
   onMount(() => {
+    studio.showKeys = () => keysDialog.show()
+    studio.showAbout = () => studioAbout.show()
     windows.fitAll()
     const stopListening = windows.listen()
     const stopWheel = on(document, "wheel", onWheel, { passive: false })
@@ -178,5 +193,9 @@
 
 <Taskbar />
 
+<FrameMenu />
+
 <HowDialog bind:this={howDialog} />
 <AboutDialog bind:this={aboutDialog} />
+<KeysDialog bind:this={keysDialog} bind:open={studio.keysOpen} />
+<StudioAboutDialog bind:this={studioAbout} bind:open={studio.aboutOpen} />

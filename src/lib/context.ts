@@ -3,6 +3,7 @@ import type { ConsoleLog } from "./consoleLog.svelte"
 import type { Converter } from "./converter.svelte"
 import type { MenuController } from "./menus.svelte"
 import type { SchemeSetting } from "./scheme.svelte"
+import type { Studio } from "./studio.svelte"
 import type { WindowManager } from "./windows.svelte"
 
 /** Commands shared by menus, buttons and keyboard shortcuts. Each one also echoes to the console. */
@@ -22,6 +23,7 @@ export type AppContext = {
   windows: WindowManager
   menus: MenuController
   scheme: SchemeSetting
+  studio: Studio
   actions: AppActions
 }
 

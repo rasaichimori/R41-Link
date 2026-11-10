@@ -11,16 +11,28 @@
     titleId?: string
     icon: Snippet
     heading: Snippet
-    /** Shows a "How it works" button in the title bar */
+    /** Shows a help button in the title bar */
     onhelp?: () => void
+    helpLabel?: string
     menubar?: Snippet
     /** Rendered after the body; receives the pointer-down handler for a resize grip */
     statusbar?: Snippet<[(event: PointerEvent) => void]>
     children: Snippet
   }
 
-  let { win, titleTag = "h2", titleId, icon, heading, onhelp, menubar, statusbar, children, ...rest }: Props =
-    $props()
+  let {
+    win,
+    titleTag = "h2",
+    titleId,
+    icon,
+    heading,
+    onhelp,
+    helpLabel = "How it works",
+    menubar,
+    statusbar,
+    children,
+    ...rest
+  }: Props = $props()
 
   const { windows } = getApp()
 
@@ -67,7 +79,7 @@
     <svelte:element this={titleTag} class="title-text" id={titleId}>{@render heading()}</svelte:element>
     <div class="title-controls">
       {#if onhelp}
-        <button type="button" class="title-btn" aria-label="How it works" onclick={onhelp}>
+        <button type="button" class="title-btn" aria-label={helpLabel} onclick={onhelp}>
           <PixelIcon name="help" />
         </button>
       {/if}
